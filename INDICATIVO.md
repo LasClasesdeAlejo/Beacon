@@ -351,3 +351,274 @@ Fase 10 Documentación              → v1.0.0
 6. **No agregar dependencias sin verificar que el build las necesita**
 7. **SQL con backticks para reserved keywords** (`groups`, `user`, `order`)
 8. **Shadow JAR obligatorio** — HikariCP + MySQL Connector siempre sombreados
+
+---
+
+## Plugin: Anvil — Gameplay
+
+> Anvil es el plugin de gameplay para Colsson Network. Consume **BeaconAPI** para permisos.
+
+### Identidad
+
+| Campo | Valor |
+|---|---|
+| Nombre | Anvil |
+| Paquete base | `com.colsson.anvil` |
+| Dependencia | Beacon (API) |
+| Persistencia | MySQL (solo homes, el resto via Beacon) |
+
+### Alcance
+
+| Responsabilidad | Ejemplo |
+|---|---|
+| **Comandos de gameplay** | `/fly`, `/home`, `/tpa`, `/spawn` |
+| **Teletransporte** | `/tpa`, `/tpahere`, `/spawn` |
+| **Hogares** | `/home`, `/sethome`, `/delhome`, `/homes` |
+| **Moderación** | `/kick`, `/ban`, `/mute` |
+| **Utilidades** | `/gamemode`, `/heal`, `/feed`, `/speed`, `/vanish` |
+
+**NO es responsable de:** Permisos (Beacon), Presentación (Loom), Economía
+
+### Permisos
+
+| Permiso | Descripción | Default |
+|---|---|---|
+| `anvil.fly` | Volar | false |
+| `anvil.fly.other` | Fly de otro jugador | false |
+| `anvil.home` | Ir a home | true |
+| `anvil.home.set` | Establecer home | true |
+| `anvil.home.delete` | Eliminar home | true |
+| `anvil.home.max.<n>` | Límite homes por grupo | 3 |
+| `anvil.tpa` | Enviar solicitud TPA | true |
+| `anvil.tpahere` | Enviar solicitud TPAHere | true |
+| `anvil.spawn` | Ir al spawn | true |
+| `anvil.spawn.admin` | Establecer spawn | false |
+| `anvil.kick` | Expulsar jugadores | false |
+| `anvil.ban` | Banear jugadores | false |
+| `anvil.mute` | Silenciar jugadores | false |
+| `anvil.gamemode` | Cambiar gamemode propio | false |
+| `anvil.heal` | Curarse | false |
+| `anvil.feed` | Saciar hambre | false |
+| `anvil.speed` | Cambiar velocidad | false |
+| `anvil.vanish` | Invisibilidad | false |
+
+### Comandos
+
+#### Fly
+
+```text
+/fly                    → activar/desactivar fly propio
+/fly <jugador>          → fly de otro (anvil.fly.other)
+```
+
+#### Home
+
+```text
+/home [nombre]          → ir a home
+/sethome [nombre]       → establecer home
+/delhome <nombre>       → eliminar home
+/homes                  → listar homes
+```
+
+#### TPA
+
+```text
+/tpa <jugador>          → teleportarse a jugador
+/tpahere <jugador>      → traer jugador a ti
+/tpa accept             → aceptar
+/tpa deny               → rechazar
+```
+
+#### Spawn
+
+```text
+/spawn                  → ir al spawn
+/spawn set              → establecer spawn (anvil.spawn.admin)
+```
+
+#### Moderación
+
+```text
+/kick <jugador> [razón]
+/ban <jugador> [razón]
+/unban <jugador>
+/mute <jugador> [razón]
+/unmute <jugador>
+```
+
+#### Utilidades
+
+```text
+/gamemode <modo> [jugador]
+/heal [jugador]
+/feed [jugador]
+/speed <velocidad>
+/vanish
+```
+
+### Modelo de Dominio
+
+```java
+// Hogar del jugador
+record Home(
+    UUID ownerUuid,
+    String name,
+    String world,
+    double x, double y, double z,
+    float yaw, float pitch
+)
+
+// Solicitud de teleportación
+record TeleportRequest(
+    UUID requesterUuid,
+    UUID targetUuid,
+    TeleportType type,    // TPA o TPA_HERE
+    long createdAtMillis,
+    boolean accepted
+)
+```
+
+### Tabla MySQL (solo homes)
+
+```sql
+CREATE TABLE anvil_homes (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    owner_uuid CHAR(36) NOT NULL,
+    name VARCHAR(64) NOT NULL,
+    world VARCHAR(64) NOT NULL,
+    x DOUBLE NOT NULL,
+    y DOUBLE NOT NULL,
+    z DOUBLE NOT NULL,
+    yaw FLOAT NOT NULL DEFAULT 0,
+    pitch FLOAT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(owner_uuid, name)
+);
+```
+
+### Configuración
+
+```yaml
+# Anvil config.yml
+tpa:
+  timeout-seconds: 60
+  require-confirmation: true
+
+homes:
+  max-default: 3
+
+spawn:
+  world: lobby
+  x: 0
+  y: 64
+  z: 0
+
+messages:
+  prefix: "§6[Anvil] §r"
+```
+
+### Desarrollo (10 Fases)
+
+```
+Fase 0  [✓] SPEC.md (Anvil)            → v0.0.0-fase0
+Fase 1  [ ] Modelo de dominio          → v0.1.0-fase1
+Fase 2  [ ] Lógica de negocio          → v0.2.0-fase2
+Fase 3  [ ] Persistencia (homes)       → v0.3.0-fase3
+Fase 4  [ ] Caché                      → v0.4.0-fase4
+Fase 5  [ ] API pública                → v0.5.0-fase5
+Fase 6  [ ] Comandos                   → v0.6.0-fase6
+Fase 7  [ ] Configuración              → v0.7.0-fase7
+Fase 8  [ ] Integración Paper          → v0.8.0-fase8
+Fase 9  [ ] Tab completion             → v0.9.0-tab-completion
+Fase 10 [ ] Documentación              → v1.0.0
+```
+
+### Reglas
+
+1. **BeaconAPI** para todos los permisos — nunca acceder a DB de Beacon
+2. **World-aware** — permisos verificados con contexto de mundo
+3. **Sin estado propio** — solo homes son persistentes
+4. **TPA timeout** — 60 segundos por defecto
+5. **Límite de homes** — configurable por permiso `anvil.home.max.<n>`
+
+---
+
+## Plugin: Loom — Presentación
+
+> Loom es el plugin de presentación para Colsson Network. Consume **BeaconAPI** para datos.
+
+### Identidad
+
+| Campo | Valor |
+|---|---|
+| Nombre | Loom |
+| Paquete base | `com.colsson.loom` |
+| Dependencia | Beacon (API) |
+| Persistencia | Ninguna (todo via Beacon) |
+
+### Alcance
+
+| Responsabilidad | Ejemplo |
+|---|---|
+| **TAB list** | Nombre, rango, ping |
+| **Nametag** | Prefijo + nombre sobre la cabeza |
+| **Chat** | Formato con rango |
+| **Scoreboard** | Info lateral |
+
+**NO es responsable de:** Permisos (Beacon), Gameplay (Anvil)
+
+### Permisos (uso interno)
+
+Loom consulta BeaconAPI para obtener:
+- Grupo del jugador (para prefijo/nametag)
+- Permisos de presentación (`loom.tab`, `loom.chat`, `loom.nametag`)
+
+### Comandos
+
+```text
+/loom                    → ayuda
+/loom reload             → recarga configuración
+/loom preview            → preview de formato
+```
+
+### Configuración
+
+```yaml
+# Loom config.yml
+tab:
+  enabled: true
+  format: "{prefix}{name} §7- §f{group}"
+
+nametag:
+  enabled: true
+  format: "{prefix}{name}"
+
+chat:
+  enabled: true
+  format: "{prefix}{name}: &r{message}"
+
+scoreboard:
+  enabled: true
+  title: "§6Colsson Network"
+  lines:
+    - "§7Bienvenido"
+    - "§f{player}"
+    - ""
+    - "§7Grupo: §f{group}"
+```
+
+### Desarrollo (10 Fases)
+
+```
+Fase 0  [ ] SPEC.md (Loom)             → v0.0.0-fase0
+Fase 1  [ ] Modelo de dominio          → v0.1.0-fase1
+Fase 2  [ ] Lógica de negocio          → v0.2.0-fase2
+Fase 3  [ ] Persistencia               → v0.3.0-fase3 (N/A)
+Fase 4  [ ] Caché                      → v0.4.0-fase4
+Fase 5  [ ] API pública                → v0.5.0-fase5
+Fase 6  [ ] Comandos                   → v0.6.0-fase6
+Fase 7  [ ] Configuración              → v0.7.0-fase7
+Fase 8  [ ] Integración Paper          → v0.8.0-fase8
+Fase 9  [ ] Tab completion             → v0.9.0-tab-completion
+Fase 10 [ ] Documentación              → v1.0.0
+```
