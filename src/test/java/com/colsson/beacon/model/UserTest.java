@@ -180,4 +180,133 @@ class UserTest {
         assertThrows(IllegalArgumentException.class,
             () -> user.addGroup(null));
     }
+
+    // ── World-specific permissions ──────────────────────────
+
+    @Test
+    void worldSpecificPermissionTrue() {
+        user.setDirectPermission("anvil.fly", true, "lobby");
+        assertEquals(PermissionState.TRUE, user.getDirectPermissionState("anvil.fly", "lobby"));
+    }
+
+    @Test
+    void worldSpecificPermissionFalse() {
+        user.setDirectPermission("anvil.fly", false, "skyblock");
+        assertEquals(PermissionState.FALSE, user.getDirectPermissionState("anvil.fly", "skyblock"));
+    }
+
+    @Test
+    void worldSpecificUndefinedDoesNotBlockGlobal() {
+        user.setDirectPermission("anvil.fly", true);  // global
+
+        // skyblock no tiene world-specific → usa global
+        assertEquals(PermissionState.TRUE, user.getDirectPermissionState("anvil.fly", "skyblock"));
+    }
+
+    @Test
+    void worldSpecificOverridesGlobal() {
+        user.setDirectPermission("anvil.fly", true);           // global
+        user.setDirectPermission("anvil.fly", false, "skyblock"); // world-specific
+
+        // skyblock: world-specific FALSE gana
+        assertEquals(PermissionState.FALSE, user.getDirectPermissionState("anvil.fly", "skyblock"));
+        // lobby: usa global TRUE
+        assertEquals(PermissionState.TRUE, user.getDirectPermissionState("anvil.fly", "lobby"));
+    }
+
+    @Test
+    void worldSpecificRemoveOnlyAffectsWorld() {
+        user.setDirectPermission("anvil.fly", false, "skyblock");
+        user.setDirectPermission("anvil.fly", true);  // global
+
+        assertTrue(user.removeDirectPermission("anvil.fly", "skyblock"));
+
+        // skyblock: world-specific eliminado → usa global
+        assertEquals(PermissionState.TRUE, user.getDirectPermissionState("anvil.fly", "skyblock"));
+        // global intacto
+        assertEquals(PermissionState.TRUE, user.getDirectPermissionState("anvil.fly"));
+    }
+
+    @Test
+    void removeDirectPermissionFromAllWorlds() {
+        user.setDirectPermission("anvil.fly", false, "skyblock");
+        user.setDirectPermission("anvil.fly", true);  // global
+
+        assertTrue(user.removeDirectPermission("anvil.fly"));
+
+        assertEquals(PermissionState.UNDEFINED, user.getDirectPermissionState("anvil.fly", "skyblock"));
+        assertEquals(PermissionState.UNDEFINED, user.getDirectPermissionState("anvil.fly"));
+    }
+
+    @Test
+    void clearDirectPermissionsByWorld() {
+        user.setDirectPermission("anvil.fly", false, "skyblock");
+        user.setDirectPermission("anvil.kick", true, "skyblock");
+        user.setDirectPermission("anvil.fly", true);  // global
+
+        user.clearDirectPermissions("skyblock");
+
+        // skyblock cleared → cae al global
+        assertEquals(PermissionState.TRUE, user.getDirectPermissionState("anvil.fly", "skyblock"));
+        assertEquals(PermissionState.UNDEFINED, user.getDirectPermissionState("anvil.kick", "skyblock"));
+        // global intacto
+        assertEquals(PermissionState.TRUE, user.getDirectPermissionState("anvil.fly"));
+    }
+
+    @Test
+    void multipleWorldsIndependent() {
+        user.setDirectPermission("anvil.fly", true, "lobby");
+        user.setDirectPermission("anvil.fly", false, "skyblock");
+        user.setDirectPermission("anvil.fly", true, "survival");
+
+        assertEquals(PermissionState.TRUE, user.getDirectPermissionState("anvil.fly", "lobby"));
+        assertEquals(PermissionState.FALSE, user.getDirectPermissionState("anvil.fly", "skyblock"));
+        assertEquals(PermissionState.TRUE, user.getDirectPermissionState("anvil.fly", "survival"));
+    }
+
+    @Test
+    void worldsReturnsAllWorldsWithPermissions() {
+        user.setDirectPermission("anvil.fly", true, "lobby");
+        user.setDirectPermission("anvil.fly", false, "skyblock");
+        user.setDirectPermission("anvil.kick", true);  // global
+
+        Set<String> worlds = user.worlds();
+        assertEquals(3, worlds.size());  // null, "lobby", "skyblock"
+        assertTrue(worlds.contains(null));
+        assertTrue(worlds.contains("lobby"));
+        assertTrue(worlds.contains("skyblock"));
+    }
+
+    @Test
+    void directPermissionsByWorld() {
+        user.setDirectPermission("anvil.fly", true, "lobby");
+        user.setDirectPermission("anvil.kick", false, "lobby");
+        user.setDirectPermission("anvil.fly", false, "skyblock");
+
+        var lobbyPerms = user.directPermissions("lobby");
+        assertEquals(2, lobbyPerms.size());
+
+        var skyblockPerms = user.directPermissions("skyblock");
+        assertEquals(1, skyblockPerms.size());
+
+        var survivalPerms = user.directPermissions("survival");
+        assertTrue(survivalPerms.isEmpty());
+    }
+
+    @Test
+    void directPermissionCountIncludesAllWorlds() {
+        user.setDirectPermission("anvil.fly", true, "lobby");
+        user.setDirectPermission("anvil.fly", false, "skyblock");
+        user.setDirectPermission("anvil.kick", true);  // global
+
+        assertEquals(3, user.directPermissionCount());
+    }
+
+    @Test
+    void hasDirectPermissionWithWorld() {
+        user.setDirectPermission("anvil.fly", true, "lobby");
+
+        assertTrue(user.hasDirectPermission("anvil.fly", "lobby"));
+        assertFalse(user.hasDirectPermission("anvil.fly", "skyblock"));
+    }
 }

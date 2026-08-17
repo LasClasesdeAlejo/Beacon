@@ -285,4 +285,127 @@ class GroupTest {
         Group b = new Group(2, "VIP", 10);
         assertNotEquals(a, b);
     }
+
+    // ── World-specific permissions ──────────────────────────
+
+    @Test
+    void worldSpecificPermissionTrue() {
+        vip.setPermission("anvil.fly", true, "lobby");
+        assertEquals(PermissionState.TRUE, vip.getPermissionState("anvil.fly", "lobby"));
+    }
+
+    @Test
+    void worldSpecificPermissionFalse() {
+        vip.setPermission("anvil.fly", false, "skyblock");
+        assertEquals(PermissionState.FALSE, vip.getPermissionState("anvil.fly", "skyblock"));
+    }
+
+    @Test
+    void worldSpecificUndefinedDoesNotBlockGlobal() {
+        vip.setPermission("anvil.fly", true);  // global
+
+        assertEquals(PermissionState.TRUE, vip.getPermissionState("anvil.fly", "skyblock"));
+    }
+
+    @Test
+    void worldSpecificOverridesGlobal() {
+        vip.setPermission("anvil.fly", true);              // global
+        vip.setPermission("anvil.fly", false, "skyblock"); // world-specific
+
+        assertEquals(PermissionState.FALSE, vip.getPermissionState("anvil.fly", "skyblock"));
+        assertEquals(PermissionState.TRUE, vip.getPermissionState("anvil.fly", "lobby"));
+    }
+
+    @Test
+    void worldSpecificRemoveOnlyAffectsWorld() {
+        vip.setPermission("anvil.fly", false, "skyblock");
+        vip.setPermission("anvil.fly", true);  // global
+
+        assertTrue(vip.removePermission("anvil.fly", "skyblock"));
+
+        assertEquals(PermissionState.TRUE, vip.getPermissionState("anvil.fly", "skyblock"));
+        assertEquals(PermissionState.TRUE, vip.getPermissionState("anvil.fly"));
+    }
+
+    @Test
+    void removePermissionFromAllWorlds() {
+        vip.setPermission("anvil.fly", false, "skyblock");
+        vip.setPermission("anvil.fly", true);  // global
+
+        assertTrue(vip.removePermission("anvil.fly"));
+
+        assertEquals(PermissionState.UNDEFINED, vip.getPermissionState("anvil.fly", "skyblock"));
+        assertEquals(PermissionState.UNDEFINED, vip.getPermissionState("anvil.fly"));
+    }
+
+    @Test
+    void clearPermissionsByWorld() {
+        vip.setPermission("anvil.fly", false, "skyblock");
+        vip.setPermission("anvil.kick", true, "skyblock");
+        vip.setPermission("anvil.fly", true);  // global
+
+        vip.clearPermissions("skyblock");
+
+        // skyblock cleared → cae al global
+        assertEquals(PermissionState.TRUE, vip.getPermissionState("anvil.fly", "skyblock"));
+        assertEquals(PermissionState.UNDEFINED, vip.getPermissionState("anvil.kick", "skyblock"));
+        assertEquals(PermissionState.TRUE, vip.getPermissionState("anvil.fly"));
+    }
+
+    @Test
+    void multipleWorldsIndependent() {
+        vip.setPermission("anvil.fly", true, "lobby");
+        vip.setPermission("anvil.fly", false, "skyblock");
+        vip.setPermission("anvil.fly", true, "survival");
+
+        assertEquals(PermissionState.TRUE, vip.getPermissionState("anvil.fly", "lobby"));
+        assertEquals(PermissionState.FALSE, vip.getPermissionState("anvil.fly", "skyblock"));
+        assertEquals(PermissionState.TRUE, vip.getPermissionState("anvil.fly", "survival"));
+    }
+
+    @Test
+    void worldsReturnsAllWorldsWithPermissions() {
+        vip.setPermission("anvil.fly", true, "lobby");
+        vip.setPermission("anvil.fly", false, "skyblock");
+        vip.setPermission("anvil.kick", true);  // global
+
+        Set<String> worlds = vip.worlds();
+        assertEquals(3, worlds.size());
+        assertTrue(worlds.contains(null));
+        assertTrue(worlds.contains("lobby"));
+        assertTrue(worlds.contains("skyblock"));
+    }
+
+    @Test
+    void permissionsByWorld() {
+        vip.setPermission("anvil.fly", true, "lobby");
+        vip.setPermission("anvil.kick", false, "lobby");
+        vip.setPermission("anvil.fly", false, "skyblock");
+
+        var lobbyPerms = vip.permissions("lobby");
+        assertEquals(2, lobbyPerms.size());
+
+        var skyblockPerms = vip.permissions("skyblock");
+        assertEquals(1, skyblockPerms.size());
+
+        var survivalPerms = vip.permissions("survival");
+        assertTrue(survivalPerms.isEmpty());
+    }
+
+    @Test
+    void permissionCountIncludesAllWorlds() {
+        vip.setPermission("anvil.fly", true, "lobby");
+        vip.setPermission("anvil.fly", false, "skyblock");
+        vip.setPermission("anvil.kick", true);  // global
+
+        assertEquals(3, vip.permissionCount());
+    }
+
+    @Test
+    void hasPermissionWithWorld() {
+        vip.setPermission("anvil.fly", true, "lobby");
+
+        assertTrue(vip.hasPermission("anvil.fly", "lobby"));
+        assertFalse(vip.hasPermission("anvil.fly", "skyblock"));
+    }
 }

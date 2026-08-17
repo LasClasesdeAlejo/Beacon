@@ -10,6 +10,12 @@ import java.util.*;
  *
  * <p>Un grupo puede tener permisos, padres (herencia) e hijos.
  * La detección de ciclos se ejecuta al añadir una relación de herencia.
+ *
+ * <p>Permisos soportan world-specific:
+ * <ul>
+ *   <li>world = null → global (aplica a todos los mundos)</li>
+ *   <li>world = "lobby" → solo aplica en lobby</li>
+ * </ul>
  */
 public final class Group {
 
@@ -17,7 +23,7 @@ public final class Group {
     private String name;
     private int priority;
     private String description;
-    private final Map<String, PermissionAssignment> permissions = new LinkedHashMap<>();
+    private final Map<String, Map<String, PermissionAssignment>> permissions = new LinkedHashMap<>();
     private final Set<Group> parents = new LinkedHashSet<>();
     private final Set<Group> children = new LinkedHashSet<>();
     private final Set<User> members = new LinkedHashSet<>();
@@ -42,7 +48,12 @@ public final class Group {
         this.name = name;
         this.priority = priority;
         this.description = description != null ? description : "";
-        this.permissions.putAll(permissions);
+        // Legacy: flat map → store as global
+        for (PermissionAssignment assignment : permissions.values()) {
+            this.permissions
+                .computeIfAbsent(null, k -> new LinkedHashMap<>())
+                .put(assignment.permission(), assignment);
+        }
         this.parents.addAll(parents);
         this.children.addAll(children);
     }
@@ -71,34 +82,159 @@ public final class Group {
         this.description = description != null ? description : "";
     }
 
-    // ── Permisos ────────────────────────────────────────────
+    // ── Permisos (backward compatible — global) ─────────────
 
+    /**
+     * Retorna vista aplanada de todos los permisos (todos los worlds).
+     * Key = "world:permission" (world=null → "global:permission")
+     */
     public Map<String, PermissionAssignment> permissions() {
-        return Collections.unmodifiableMap(permissions);
+        Map<String, PermissionAssignment> flat = new LinkedHashMap<>();
+        for (var worldEntry : permissions.entrySet()) {
+            String world = worldEntry.getKey();
+            for (var permEntry : worldEntry.getValue().entrySet()) {
+                String key = (world == null ? "global" : world) + ":" + permEntry.getKey();
+                flat.put(key, permEntry.getValue());
+            }
+        }
+        return Collections.unmodifiableMap(flat);
     }
 
+    /**
+     * Cuenta el total de permisos (todos los worlds).
+     */
+    public int permissionCount() {
+        int count = 0;
+        for (Map<String, PermissionAssignment> worldPerms : permissions.values()) {
+            count += worldPerms.size();
+        }
+        return count;
+    }
+
+    // ── Permisos — resolución ───────────────────────────────
+
+    /**
+     * Resolución de permiso (global):
+     * 1. ¿Tiene world-specific DEFINIDO en algún mundo? → NO se usa aquí
+     * 2. ¿Tiene permiso global (world=null)? → Usar ese
+     * 3. UNDEFINED
+     */
     public PermissionState getPermissionState(String permission) {
-        PermissionAssignment assignment = permissions.get(permission);
-        return assignment != null ? assignment.toState() : PermissionState.UNDEFINED;
+        return getPermissionState(permission, null);
     }
 
+    /**
+     * Resolución de permiso con world:
+     * 1. ¿Tiene world-specific DEFINIDO para `world`? → Usar ese
+     * 2. ¿Tiene permiso global (world=null)? → Usar ese
+     * 3. UNDEFINED
+     */
+    public PermissionState getPermissionState(String permission, String world) {
+        // 1. Buscar world-specific (solo si world no es null)
+        if (world != null) {
+            Map<String, PermissionAssignment> worldPerms = permissions.get(world);
+            if (worldPerms != null) {
+                PermissionAssignment assignment = worldPerms.get(permission);
+                if (assignment != null) {
+                    return assignment.toState();
+                }
+            }
+        }
+        // 2. Buscar global
+        Map<String, PermissionAssignment> globalPerms = permissions.get(null);
+        if (globalPerms != null) {
+            PermissionAssignment assignment = globalPerms.get(permission);
+            if (assignment != null) {
+                return assignment.toState();
+            }
+        }
+        return PermissionState.UNDEFINED;
+    }
+
+    public boolean hasPermission(String permission) {
+        return hasPermission(permission, null);
+    }
+
+    public boolean hasPermission(String permission, String world) {
+        return getPermissionState(permission, world).isDefined();
+    }
+
+    // ── Permisos — escritura (backward compatible) ──────────
+
+    /**
+     * Establece un permiso global (world=null).
+     */
     public void setPermission(String permission, boolean value) {
+        setPermission(permission, value, null);
+    }
+
+    /**
+     * Establece un permiso para un mundo específico.
+     */
+    public void setPermission(String permission, boolean value, String world) {
         if (permission == null || permission.isBlank()) {
             throw new IllegalArgumentException("El permiso no puede ser nulo o vacío");
         }
-        permissions.put(permission, new PermissionAssignment(permission, value));
+        permissions
+            .computeIfAbsent(world, k -> new LinkedHashMap<>())
+            .put(permission, new PermissionAssignment(permission, value));
     }
 
+    // ── Permisos — eliminación ──────────────────────────────
+
+    /**
+     * Elimina un permiso de TODOS los worlds.
+     */
     public boolean removePermission(String permission) {
-        return permissions.remove(permission) != null;
+        boolean removed = false;
+        for (Map<String, PermissionAssignment> worldPerms : permissions.values()) {
+            if (worldPerms.remove(permission) != null) {
+                removed = true;
+            }
+        }
+        return removed;
     }
 
+    /**
+     * Elimina un permiso de un world específico.
+     */
+    public boolean removePermission(String permission, String world) {
+        Map<String, PermissionAssignment> worldPerms = permissions.get(world);
+        if (worldPerms == null) return false;
+        return worldPerms.remove(permission) != null;
+    }
+
+    /**
+     * Elimina todos los permisos de TODOS los worlds.
+     */
     public void clearPermissions() {
         permissions.clear();
     }
 
-    public boolean hasPermission(String permission) {
-        return permissions.containsKey(permission);
+    /**
+     * Elimina todos los permisos de un world específico.
+     */
+    public void clearPermissions(String world) {
+        permissions.remove(world);
+    }
+
+    // ── Utilidades ──────────────────────────────────────────
+
+    /**
+     * Retorna los worlds que tienen permisos.
+     */
+    public Set<String> worlds() {
+        return Collections.unmodifiableSet(permissions.keySet());
+    }
+
+    /**
+     * Retorna los permisos de un world específico.
+     */
+    public Map<String, PermissionAssignment> permissions(String world) {
+        Map<String, PermissionAssignment> perms = permissions.get(world);
+        return perms != null
+            ? Collections.unmodifiableMap(perms)
+            : Collections.emptyMap();
     }
 
     // ── Herencia ────────────────────────────────────────────
@@ -207,6 +343,6 @@ public final class Group {
     @Override
     public String toString() {
         return "Group{" + name + " (id=" + id + ", priority=" + priority +
-               ", parents=" + parents.size() + ", permissions=" + permissions.size() + ")}";
+               ", parents=" + parents.size() + ", permissions=" + permissionCount() + ")}";
     }
 }

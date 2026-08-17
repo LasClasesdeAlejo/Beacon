@@ -7,13 +7,22 @@ import java.util.*;
  *
  * <p>La identidad permanente es el UUID. El nombre puede cambiarse.
  * Un usuario puede pertenecer a múltiples grupos y tener permisos directos.
+ *
+ * <p>Permisos directos soportan world-specific:
+ * <ul>
+ *   <li>world = null → global (aplica a todos los mundos)</li>
+ *   <li>world = "lobby" → solo aplica en lobby</li>
+ * </ul>
+ *
+ * <p>Resolución: world-specific DEFINIDO gana sobre global.
+ * World-specific UNDEFINED no bloquea el global.
  */
 public final class User {
 
     private final UUID uuid;
     private String username;
     private final Set<Group> groups = new LinkedHashSet<>();
-    private final Map<String, PermissionAssignment> directPermissions = new LinkedHashMap<>();
+    private final Map<String, Map<String, PermissionAssignment>> directPermissions = new LinkedHashMap<>();
 
     public User(UUID uuid, String username) {
         if (uuid == null) {
@@ -68,47 +77,165 @@ public final class User {
         return removed;
     }
 
-    // ── Permisos directos ───────────────────────────────────
+    // ── Permisos directos (backward compatible — global) ─────
 
+    /**
+     * Retorna vista aplanada de todos los permisos directos (todos los worlds).
+     * Key = "world:permission" (world=null → "null:permission")
+     */
     public Map<String, PermissionAssignment> directPermissions() {
-        return Collections.unmodifiableMap(directPermissions);
+        Map<String, PermissionAssignment> flat = new LinkedHashMap<>();
+        for (var worldEntry : directPermissions.entrySet()) {
+            String world = worldEntry.getKey();
+            for (var permEntry : worldEntry.getValue().entrySet()) {
+                String key = (world == null ? "global" : world) + ":" + permEntry.getKey();
+                flat.put(key, permEntry.getValue());
+            }
+        }
+        return Collections.unmodifiableMap(flat);
     }
 
     /**
-     * Obtiene el estado de un permiso directo.
-     * Retorna UNDEFINED si no hay asignación directa.
+     * Cuenta el total de permisos directos (todos los worlds).
+     */
+    public int directPermissionCount() {
+        int count = 0;
+        for (Map<String, PermissionAssignment> worldPerms : directPermissions.values()) {
+            count += worldPerms.size();
+        }
+        return count;
+    }
+
+    // ── Permisos directos — resolución ──────────────────────
+
+    /**
+     * Resolución de permiso directo (global):
+     * 1. ¿Tiene world-specific DEFINIDO en algún mundo? → NO se usa aquí
+     * 2. ¿Tiene permiso global (world=null)? → Usar ese
+     * 3. UNDEFINED
      */
     public PermissionState getDirectPermissionState(String permission) {
-        PermissionAssignment assignment = directPermissions.get(permission);
-        return assignment != null ? assignment.toState() : PermissionState.UNDEFINED;
+        return getDirectPermissionState(permission, null);
     }
 
     /**
-     * Establece un permiso directo (TRUE o FALSE).
+     * Resolución de permiso directo con world:
+     * 1. ¿Tiene world-specific DEFINIDO para `world`? → Usar ese
+     * 2. ¿Tiene permiso global (world=null)? → Usar ese
+     * 3. UNDEFINED
+     */
+    public PermissionState getDirectPermissionState(String permission, String world) {
+        // 1. Buscar world-specific (solo si world no es null)
+        if (world != null) {
+            Map<String, PermissionAssignment> worldPerms = directPermissions.get(world);
+            if (worldPerms != null) {
+                PermissionAssignment assignment = worldPerms.get(permission);
+                if (assignment != null) {
+                    return assignment.toState();
+                }
+            }
+        }
+        // 2. Buscar global
+        Map<String, PermissionAssignment> globalPerms = directPermissions.get(null);
+        if (globalPerms != null) {
+            PermissionAssignment assignment = globalPerms.get(permission);
+            if (assignment != null) {
+                return assignment.toState();
+            }
+        }
+        return PermissionState.UNDEFINED;
+    }
+
+    /**
+     * ¿Tiene permiso directo definido en algún scope?
+     */
+    public boolean hasDirectPermission(String permission) {
+        return hasDirectPermission(permission, null);
+    }
+
+    /**
+     * ¿Tiene permiso directo definido en un scope específico?
+     */
+    public boolean hasDirectPermission(String permission, String world) {
+        return getDirectPermissionState(permission, world).isDefined();
+    }
+
+    // ── Permisos directos — escritura (backward compatible) ──
+
+    /**
+     * Establece un permiso directo global (world=null).
      */
     public void setDirectPermission(String permission, boolean value) {
+        setDirectPermission(permission, value, null);
+    }
+
+    /**
+     * Establece un permiso directo para un mundo específico.
+     */
+    public void setDirectPermission(String permission, boolean value, String world) {
         if (permission == null || permission.isBlank()) {
             throw new IllegalArgumentException("El permiso no puede ser nulo o vacío");
         }
-        directPermissions.put(permission, new PermissionAssignment(permission, value));
+        directPermissions
+            .computeIfAbsent(world, k -> new LinkedHashMap<>())
+            .put(permission, new PermissionAssignment(permission, value));
     }
 
+    // ── Permisos directos — eliminación ─────────────────────
+
     /**
-     * Elimina un permiso directo, restaurando UNDEFINED.
+     * Elimina un permiso directo de TODOS los worlds.
      */
     public boolean removeDirectPermission(String permission) {
-        return directPermissions.remove(permission) != null;
+        boolean removed = false;
+        for (Map<String, PermissionAssignment> worldPerms : directPermissions.values()) {
+            if (worldPerms.remove(permission) != null) {
+                removed = true;
+            }
+        }
+        return removed;
     }
 
     /**
-     * Elimina todos los permisos directos.
+     * Elimina un permiso directo de un world específico.
+     */
+    public boolean removeDirectPermission(String permission, String world) {
+        Map<String, PermissionAssignment> worldPerms = directPermissions.get(world);
+        if (worldPerms == null) return false;
+        return worldPerms.remove(permission) != null;
+    }
+
+    /**
+     * Elimina todos los permisos directos de TODOS los worlds.
      */
     public void clearDirectPermissions() {
         directPermissions.clear();
     }
 
-    public boolean hasDirectPermission(String permission) {
-        return directPermissions.containsKey(permission);
+    /**
+     * Elimina todos los permisos directos de un world específico.
+     */
+    public void clearDirectPermissions(String world) {
+        directPermissions.remove(world);
+    }
+
+    // ── Utilidades ──────────────────────────────────────────
+
+    /**
+     * Retorna los worlds que tienen permisos directos.
+     */
+    public Set<String> worlds() {
+        return Collections.unmodifiableSet(directPermissions.keySet());
+    }
+
+    /**
+     * Retorna los permisos directos de un world específico.
+     */
+    public Map<String, PermissionAssignment> directPermissions(String world) {
+        Map<String, PermissionAssignment> perms = directPermissions.get(world);
+        return perms != null
+            ? Collections.unmodifiableMap(perms)
+            : Collections.emptyMap();
     }
 
     @Override
@@ -126,6 +253,6 @@ public final class User {
     @Override
     public String toString() {
         return "User{" + username + "/" + uuid + ", groups=" + groups.size() +
-               ", directPermissions=" + directPermissions.size() + "}";
+               ", directPermissions=" + directPermissionCount() + "}";
     }
 }
