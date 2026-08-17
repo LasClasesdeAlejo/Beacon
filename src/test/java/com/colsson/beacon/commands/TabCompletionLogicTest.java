@@ -18,12 +18,13 @@ class TabCompletionLogicTest {
 
     private static final List<String> PLAYERS = List.of("Colsson", "Steve", "Alex");
     private static final List<String> GROUPS = List.of("admin", "moderador", "vip", "default");
+    private static final List<String> WORLDS = List.of("lobby", "skyblock", "survival");
 
     private TabCompletionEngine engine;
 
     @BeforeEach
     void setUp() {
-        engine = new TabCompletionEngine(() -> PLAYERS, () -> GROUPS);
+        engine = new TabCompletionEngine(() -> PLAYERS, () -> GROUPS, () -> WORLDS);
     }
 
     // ══════════════════════════════════════════════════════
@@ -197,9 +198,11 @@ class TabCompletionLogicTest {
         }
 
         @Test
-        void userPermissionSetPermValue_completesMundoAndRazon() {
+        void userPermissionSetPermValue_completesMundosAndRazon() {
             var c = complete("user", "Colsson", "permission", "set", "test.permission", "true", "");
-            assertContains(c, "<mundo>");
+            assertContains(c, "lobby");
+            assertContains(c, "skyblock");
+            assertContains(c, "survival");
             assertContains(c, "<razón>");
         }
 
@@ -207,7 +210,7 @@ class TabCompletionLogicTest {
         void userPermissionSetPermValueMundo_completesRazon() {
             var c = complete("user", "Colsson", "permission", "set", "test.permission", "true", "lobby", "");
             assertContains(c, "<razón>");
-            assertNotContains(c, "<mundo>");
+            assertNotContains(c, "lobby");
         }
 
         @Test
@@ -217,9 +220,11 @@ class TabCompletionLogicTest {
         }
 
         @Test
-        void userPermissionRemovePerm_completesMundoAndRazon() {
+        void userPermissionRemovePerm_completesMundosAndRazon() {
             var c = complete("user", "Colsson", "permission", "remove", "test.permission", "");
-            assertContains(c, "<mundo>");
+            assertContains(c, "lobby");
+            assertContains(c, "skyblock");
+            assertContains(c, "survival");
             assertContains(c, "<razón>");
         }
 
@@ -423,9 +428,11 @@ class TabCompletionLogicTest {
         }
 
         @Test
-        void groupAdminPermissionSetPermValue_completesMundoAndRazon() {
+        void groupAdminPermissionSetPermValue_completesMundosAndRazon() {
             var c = complete("group", "admin", "permission", "set", "test.permission", "true", "");
-            assertContains(c, "<mundo>");
+            assertContains(c, "lobby");
+            assertContains(c, "skyblock");
+            assertContains(c, "survival");
             assertContains(c, "<razón>");
         }
 
@@ -433,7 +440,7 @@ class TabCompletionLogicTest {
         void groupAdminPermissionSetPermValueMundo_completesRazon() {
             var c = complete("group", "admin", "permission", "set", "test.permission", "true", "lobby", "");
             assertContains(c, "<razón>");
-            assertNotContains(c, "<mundo>");
+            assertNotContains(c, "lobby");
         }
 
         @Test
@@ -443,9 +450,11 @@ class TabCompletionLogicTest {
         }
 
         @Test
-        void groupAdminPermissionRemovePerm_completesMundoAndRazon() {
+        void groupAdminPermissionRemovePerm_completesMundosAndRazon() {
             var c = complete("group", "admin", "permission", "remove", "test.permission", "");
-            assertContains(c, "<mundo>");
+            assertContains(c, "lobby");
+            assertContains(c, "skyblock");
+            assertContains(c, "survival");
             assertContains(c, "<razón>");
         }
 
@@ -511,9 +520,11 @@ class TabCompletionLogicTest {
         }
 
         @Test
-        void checkPlayerPerm_completesMundo() {
+        void checkPlayerPerm_completesMundos() {
             var c = complete("check", "Colsson", "test.permission", "");
-            assertContains(c, "<mundo>");
+            assertContains(c, "lobby");
+            assertContains(c, "skyblock");
+            assertContains(c, "survival");
         }
 
         @Test
@@ -560,9 +571,11 @@ class TabCompletionLogicTest {
         }
 
         @Test
-        void debugPermissionPlayerPerm_completesMundo() {
+        void debugPermissionPlayerPerm_completesMundos() {
             var c = complete("debug", "permission", "Colsson", "test.permission", "");
-            assertContains(c, "<mundo>");
+            assertContains(c, "lobby");
+            assertContains(c, "skyblock");
+            assertContains(c, "survival");
         }
 
         @Test

@@ -27,7 +27,8 @@ public class PaperCommandExecutor implements CommandExecutor, TabCompleter {
         this.router = router;
         this.tabEngine = new TabCompletionEngine(
             () -> server.getOnlinePlayers().stream().map(Player::getName).toList(),
-            () -> api.getGroups().stream().map(g -> g.name()).toList()
+            () -> api.getGroups().stream().map(g -> g.name()).toList(),
+            () -> server.getWorlds().stream().map(w -> w.getName()).toList()
         );
     }
 

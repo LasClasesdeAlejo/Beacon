@@ -32,11 +32,14 @@ public class TabCompletionEngine {
 
     private final Supplier<List<String>> playerNamesSupplier;
     private final Supplier<List<String>> groupNamesSupplier;
+    private final Supplier<List<String>> worldNamesSupplier;
 
     public TabCompletionEngine(Supplier<List<String>> playerNamesSupplier,
-                                Supplier<List<String>> groupNamesSupplier) {
+                                Supplier<List<String>> groupNamesSupplier,
+                                Supplier<List<String>> worldNamesSupplier) {
         this.playerNamesSupplier = playerNamesSupplier;
         this.groupNamesSupplier = groupNamesSupplier;
+        this.worldNamesSupplier = worldNamesSupplier;
     }
 
     /**
@@ -107,25 +110,29 @@ public class TabCompletionEngine {
 
                 // §11.3: user Colsson group add vip <TAB> → <razón>
                 //         user Colsson permission set test <TAB> → true|false
-                //         user Colsson permission remove <TAB> → <mundo>|<razón>
+                //         user Colsson permission remove <TAB> → mundos|<razón>
                 case 6 -> {
                     switch (a2) {
                         case "group" -> c.add("<razón>");
                         case "permission" -> {
                             if ("set".equals(a3)) c.addAll(List.of("true", "false"));
-                            else if ("remove".equals(a3)) c.addAll(List.of("<mundo>", "<razón>"));
+                            else if ("remove".equals(a3)) {
+                                c.addAll(worldNamesSupplier.get());
+                                c.add("<razón>");
+                            }
                         }
                     }
                 }
 
-                // §11.3: user Colsson permission set test true <TAB> → <mundo>|<razón>
+                // §11.3: user Colsson permission set test true <TAB> → mundos|<razón>
                 case 7 -> {
                     if ("permission".equals(a2) && "set".equals(a3)) {
-                        c.addAll(List.of("<mundo>", "<razón>"));
+                        c.addAll(worldNamesSupplier.get());
+                        c.add("<razón>");
                     }
                 }
 
-                // §11.3: user Colsson permission set test true world <TAB> → <razón>
+                // §11.3: user Colsson permission set test true lobby <TAB> → <razón>
                 case 8 -> {
                     if ("permission".equals(a2) && "set".equals(a3)) {
                         c.add("<razón>");
@@ -201,26 +208,30 @@ public class TabCompletionEngine {
                 //         §11.5: group admin edit description Texto <TAB> → <razón>
                 //         §11.6: group admin parent set vip <TAB> → <razón>
                 //         §11.7: group admin permission set test <TAB> → true|false
-                //         §11.7: group admin permission remove <TAB> → <mundo>|<razón>
+                //         §11.7: group admin permission remove <TAB> → mundos|<razón>
                 case 6 -> {
                     switch (a2) {
                         case "edit" -> c.add("<razón>");
                         case "parent" -> c.add("<razón>");
                         case "permission" -> {
                             if ("set".equals(a3)) c.addAll(List.of("true", "false"));
-                            else if ("remove".equals(a3)) c.addAll(List.of("<mundo>", "<razón>"));
+                            else if ("remove".equals(a3)) {
+                                c.addAll(worldNamesSupplier.get());
+                                c.add("<razón>");
+                            }
                         }
                     }
                 }
 
-                // §11.7: group admin permission set test true <TAB> → <mundo>|<razón>
+                // §11.7: group admin permission set test true <TAB> → mundos|<razón>
                 case 7 -> {
                     if ("permission".equals(a2) && "set".equals(a3)) {
-                        c.addAll(List.of("<mundo>", "<razón>"));
+                        c.addAll(worldNamesSupplier.get());
+                        c.add("<razón>");
                     }
                 }
 
-                // §11.7: group admin permission set test true world <TAB> → <razón>
+                // §11.7: group admin permission set test true lobby <TAB> → <razón>
                 case 8 -> {
                     if ("permission".equals(a2) && "set".equals(a3)) {
                         c.add("<razón>");
@@ -253,7 +264,7 @@ public class TabCompletionEngine {
             switch (len) {
                 case 2 -> c.addAll(playerNamesSupplier.get());
                 case 3 -> c.add("<permiso>");
-                case 4 -> c.add("<mundo>");
+                case 4 -> c.addAll(worldNamesSupplier.get());
             }
             return filter(c, last);
         }
@@ -284,7 +295,7 @@ public class TabCompletionEngine {
                 }
                 case 5 -> {
                     if ("permission".equals(a1)) {
-                        c.add("<mundo>");
+                        c.addAll(worldNamesSupplier.get());
                     }
                 }
             }
