@@ -58,6 +58,21 @@ public final class Group {
         this.children.addAll(children);
     }
 
+    public Group(long id, String name, int priority, String description,
+                 Map<String, Map<String, PermissionAssignment>> permissionsByWorld,
+                 Set<Group> parents, Set<Group> children, boolean worldAware) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("El nombre del grupo no puede ser nulo o vacío");
+        }
+        this.id = id;
+        this.name = name;
+        this.priority = priority;
+        this.description = description != null ? description : "";
+        this.permissions.putAll(permissionsByWorld);
+        this.parents.addAll(parents);
+        this.children.addAll(children);
+    }
+
     public Group(long id, String name, int priority) {
         this(id, name, priority, "");
     }

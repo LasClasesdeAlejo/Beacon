@@ -105,8 +105,13 @@ public class CacheManager {
     // ── Permisos ────────────────────────────────────────────
 
     public Optional<PermissionResult> getPermissionResult(UUID userUuid, String permission) {
+        return getPermissionResult(userUuid, permission, null);
+    }
+
+    public Optional<PermissionResult> getPermissionResult(UUID userUuid, String permission,
+                                                           String world) {
         if (!enabled) return Optional.empty();
-        String key = buildPermissionKey(userUuid, permission);
+        String key = buildPermissionKey(userUuid, permission, world);
         CacheEntry<PermissionResult> entry = permissionCache.get(key);
         if (entry == null || entry.isExpired(ttlMillis)) {
             if (entry != null) permissionCache.remove(key);
@@ -116,11 +121,16 @@ public class CacheManager {
     }
 
     public void putPermissionResult(UUID userUuid, String permission, PermissionResult result) {
+        putPermissionResult(userUuid, permission, null, result);
+    }
+
+    public void putPermissionResult(UUID userUuid, String permission, String world,
+                                     PermissionResult result) {
         if (!enabled) return;
         if (permissionCache.size() >= maxSize) {
             evictOldest(permissionCache);
         }
-        permissionCache.put(buildPermissionKey(userUuid, permission),
+        permissionCache.put(buildPermissionKey(userUuid, permission, world),
                             new CacheEntry<>(result, System.currentTimeMillis()));
     }
 
@@ -157,8 +167,8 @@ public class CacheManager {
 
     // ── Internos ────────────────────────────────────────────
 
-    private String buildPermissionKey(UUID userUuid, String permission) {
-        return userUuid + ":" + permission;
+    private String buildPermissionKey(UUID userUuid, String permission, String world) {
+        return userUuid + ":" + permission + ":" + (world != null ? world : "global");
     }
 
     private <K, T> void evictOldest(Map<K, CacheEntry<T>> map) {

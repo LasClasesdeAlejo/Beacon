@@ -171,6 +171,24 @@ public class BeaconAPIImpl implements BeaconAPI {
         return result;
     }
 
+    @Override
+    public boolean hasPermission(UUID uuid, String permission, String world) {
+        return getPermissionState(uuid, permission, world).isGranted();
+    }
+
+    @Override
+    public PermissionResult getPermissionState(UUID uuid, String permission, String world) {
+        Optional<PermissionResult> cached = cache.getPermissionResult(uuid, permission, world);
+        if (cached.isPresent()) return cached.get();
+
+        Optional<User> userOpt = getUser(uuid);
+        if (userOpt.isEmpty()) return PermissionResult.undefined();
+
+        PermissionResult result = resolver.resolve(userOpt.get(), permission, world);
+        cache.putPermissionResult(uuid, permission, world, result);
+        return result;
+    }
+
     // ══════════════════════════════════════════════════════════
     // Grupos — CRUD
     // ══════════════════════════════════════════════════════════
@@ -384,6 +402,38 @@ public class BeaconAPIImpl implements BeaconAPI {
         }
     }
 
+    // ── Grupos — Permisos — world-specific ─────────────────
+
+    @Override
+    public void setGroupPermission(String group, String permission, boolean value,
+                                    String world, String actor, String reason) {
+        try {
+            GroupRecord record = requireGroup(group);
+            permRepo.setGroupPermission(record.id(), permission, value, world);
+            cache.invalidateGroup(group);
+            cache.invalidateGroupPermissions();
+            audit(actor, AuditAction.GROUP_PERMISSION_SET, "GROUP", group,
+                  null, permission + "=" + value + (world != null ? " @" + world : ""), reason);
+        } catch (SQLException e) {
+            throw new RuntimeException("Error setting group permission: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void removeGroupPermission(String group, String permission, String world,
+                                       String actor, String reason) {
+        try {
+            GroupRecord record = requireGroup(group);
+            permRepo.removeGroupPermission(record.id(), permission, world);
+            cache.invalidateGroup(group);
+            cache.invalidateGroupPermissions();
+            audit(actor, AuditAction.GROUP_PERMISSION_REMOVE, "GROUP", group,
+                  permission + (world != null ? " @" + world : ""), null, reason);
+        } catch (SQLException e) {
+            throw new RuntimeException("Error removing group permission: " + e.getMessage(), e);
+        }
+    }
+
     // ══════════════════════════════════════════════════════════
     // Usuarios — Grupos
     // ══════════════════════════════════════════════════════════
@@ -483,6 +533,38 @@ public class BeaconAPIImpl implements BeaconAPI {
         }
     }
 
+    // ── Usuarios — Permisos — world-specific ───────────────
+
+    @Override
+    public void setUserPermission(UUID uuid, String permission, boolean value,
+                                   String world, String actor, String reason) {
+        try {
+            requireUserRecord(uuid);
+            permRepo.setUserPermission(uuid, permission, value, world);
+            cache.invalidateUser(uuid);
+            cache.invalidateUserPermissions(uuid);
+            audit(actor, AuditAction.USER_PERMISSION_SET, "USER", uuid.toString(),
+                  null, permission + "=" + value + (world != null ? " @" + world : ""), reason);
+        } catch (SQLException e) {
+            throw new RuntimeException("Error setting user permission: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void removeUserPermission(UUID uuid, String permission, String world,
+                                      String actor, String reason) {
+        try {
+            requireUserRecord(uuid);
+            permRepo.removeUserPermission(uuid, permission, world);
+            cache.invalidateUser(uuid);
+            cache.invalidateUserPermissions(uuid);
+            audit(actor, AuditAction.USER_PERMISSION_REMOVE, "USER", uuid.toString(),
+                  permission + (world != null ? " @" + world : ""), null, reason);
+        } catch (SQLException e) {
+            throw new RuntimeException("Error removing user permission: " + e.getMessage(), e);
+        }
+    }
+
     // ══════════════════════════════════════════════════════════
     // Recarga
     // ══════════════════════════════════════════════════════════
@@ -518,12 +600,13 @@ public class BeaconAPIImpl implements BeaconAPI {
         }
 
         try (var ps = conn.prepareStatement(
-                 "SELECT permission, value FROM user_permissions WHERE user_uuid = ?")) {
+                 "SELECT permission, value, world FROM user_permissions WHERE user_uuid = ?")) {
             ps.setString(1, record.uuid().toString());
             try (var rs = ps.executeQuery()) {
                 while (rs.next()) {
                     user.setDirectPermission(rs.getString("permission"),
-                                            rs.getInt("value") == 1);
+                                            rs.getInt("value") == 1,
+                                            rs.getString("world"));
                 }
             }
         }
@@ -538,29 +621,32 @@ public class BeaconAPIImpl implements BeaconAPI {
                              record.description());
         }
 
-        Map<String, PermissionAssignment> permissions = loadGroupPermissions(conn, record.id());
+        Map<String, Map<String, PermissionAssignment>> permissions =
+            loadGroupPermissionsByWorld(conn, record.id());
         Set<Group> parents = loadParents(conn, record.id(), visited);
         Set<Group> children = loadChildren(conn, record.id(), visited);
 
         return new Group(record.id(), record.name(), record.priority(),
-                         record.description(), permissions, parents, children);
+                         record.description(), permissions, parents, children, true);
     }
 
-    private Map<String, PermissionAssignment> loadGroupPermissions(Connection conn, long groupId)
-            throws SQLException {
-        Map<String, PermissionAssignment> permissions = new LinkedHashMap<>();
+    private Map<String, Map<String, PermissionAssignment>> loadGroupPermissionsByWorld(
+            Connection conn, long groupId) throws SQLException {
+        Map<String, Map<String, PermissionAssignment>> result = new LinkedHashMap<>();
         try (var ps = conn.prepareStatement(
-                 "SELECT permission, value FROM group_permissions WHERE group_id = ?")) {
+                 "SELECT permission, value, world FROM group_permissions WHERE group_id = ?")) {
             ps.setLong(1, groupId);
             try (var rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String perm = rs.getString("permission");
                     boolean val = rs.getInt("value") == 1;
-                    permissions.put(perm, new PermissionAssignment(perm, val));
+                    String world = rs.getString("world");
+                    result.computeIfAbsent(world, k -> new LinkedHashMap<>())
+                          .put(perm, new PermissionAssignment(perm, val));
                 }
             }
         }
-        return permissions;
+        return result;
     }
 
     private Set<Group> loadParents(Connection conn, long groupId, Set<Long> visited)

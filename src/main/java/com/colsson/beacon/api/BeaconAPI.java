@@ -35,6 +35,12 @@ public interface BeaconAPI {
 
     PermissionResult getPermissionState(UUID uuid, String permission);
 
+    // ── Consultas — world-specific ─────────────────────────
+
+    boolean hasPermission(UUID uuid, String permission, String world);
+
+    PermissionResult getPermissionState(UUID uuid, String permission, String world);
+
     // ── Grupos — CRUD ──────────────────────────────────────
 
     long createGroup(String name, int priority, String description,
@@ -69,6 +75,14 @@ public interface BeaconAPI {
 
     void clearGroupPermissions(String group, String actor, String reason);
 
+    // ── Grupos — Permisos — world-specific ─────────────────
+
+    void setGroupPermission(String group, String permission, boolean value,
+                            String world, String actor, String reason);
+
+    void removeGroupPermission(String group, String permission, String world,
+                               String actor, String reason);
+
     // ── Usuarios — Grupos ──────────────────────────────────
 
     void addUserToGroup(UUID uuid, String groupName, String actor, String reason);
@@ -83,6 +97,14 @@ public interface BeaconAPI {
     void removeUserPermission(UUID uuid, String permission, String actor, String reason);
 
     void clearUserPermissions(UUID uuid, String actor, String reason);
+
+    // ── Usuarios — Permisos — world-specific ───────────────
+
+    void setUserPermission(UUID uuid, String permission, boolean value,
+                           String world, String actor, String reason);
+
+    void removeUserPermission(UUID uuid, String permission, String world,
+                              String actor, String reason);
 
     // ── Recarga ────────────────────────────────────────────
 
