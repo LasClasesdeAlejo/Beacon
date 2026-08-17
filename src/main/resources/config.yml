@@ -1,0 +1,23 @@
+# ══════════════════════════════════════════════════════════════
+# Beacon — Configuración
+# ══════════════════════════════════════════════════════════════
+
+# MySQL
+mysql:
+  host: localhost
+  port: 3306
+  database: beacon
+  username: root
+  password: ""
+
+# Cache local
+cache:
+  enabled: true
+  ttl-seconds: 300
+  max-size: 1000
+
+# Nombre del servidor (para auditoría en red)
+server-name: default
+
+# Migración automática del esquema
+auto-migrate: true
