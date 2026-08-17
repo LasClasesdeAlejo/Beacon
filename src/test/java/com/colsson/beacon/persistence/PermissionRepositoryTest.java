@@ -227,4 +227,220 @@ class PermissionRepositoryTest {
         repo.removeGroupPermission(groupId, "anvil.fly");
         assertTrue(repo.getGroupPermissions(groupId).isEmpty());
     }
+
+    // ── World-specific (V8 schema) ──────────────────────────
+
+    @Test
+    void worldColumnExists() throws Exception {
+        var groupRepo = new GroupRepository(db);
+        long groupId = groupRepo.create("VIP", 10, "");
+
+        // Verify world column exists by inserting with explicit world
+        try (var conn = db.getConnection();
+             var ps = conn.prepareStatement(
+                 "INSERT INTO group_permissions (group_id, permission, value, world) VALUES (?, ?, ?, ?)")) {
+            ps.setLong(1, groupId);
+            ps.setString(2, "anvil.fly");
+            ps.setInt(3, 1);
+            ps.setString(4, "lobby");
+            ps.executeUpdate();
+        }
+
+        // Verify it can be read back
+        try (var conn = db.getConnection();
+             var ps = conn.prepareStatement(
+                 "SELECT world FROM group_permissions WHERE group_id = ? AND permission = ?")) {
+            ps.setLong(1, groupId);
+            ps.setString(2, "anvil.fly");
+            try (var rs = ps.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals("lobby", rs.getString("world"));
+            }
+        }
+    }
+
+    @Test
+    void globalAndWorldSpecificCoexist() throws Exception {
+        var groupRepo = new GroupRepository(db);
+        long groupId = groupRepo.create("VIP", 10, "");
+
+        // Insert global (world=NULL)
+        try (var conn = db.getConnection();
+             var ps = conn.prepareStatement(
+                 "INSERT INTO group_permissions (group_id, permission, value, world) VALUES (?, ?, ?, ?)")) {
+            ps.setLong(1, groupId);
+            ps.setString(2, "anvil.fly");
+            ps.setInt(3, 1);
+            ps.setNull(4, java.sql.Types.VARCHAR);
+            ps.executeUpdate();
+        }
+
+        // Insert world-specific (world='skyblock') — same permission, different world
+        try (var conn = db.getConnection();
+             var ps = conn.prepareStatement(
+                 "INSERT INTO group_permissions (group_id, permission, value, world) VALUES (?, ?, ?, ?)")) {
+            ps.setLong(1, groupId);
+            ps.setString(2, "anvil.fly");
+            ps.setInt(3, 0);
+            ps.setString(4, "skyblock");
+            ps.executeUpdate();
+        }
+
+        // Both should exist
+        try (var conn = db.getConnection();
+             var ps = conn.prepareStatement(
+                 "SELECT COUNT(*) FROM group_permissions WHERE group_id = ?")) {
+            ps.setLong(1, groupId);
+            try (var rs = ps.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals(2, rs.getInt(1));
+            }
+        }
+    }
+
+    @Test
+    void duplicateWorldSpecificRejected() throws Exception {
+        var groupRepo = new GroupRepository(db);
+        long groupId = groupRepo.create("VIP", 10, "");
+
+        // Insert world-specific
+        try (var conn = db.getConnection();
+             var ps = conn.prepareStatement(
+                 "INSERT INTO group_permissions (group_id, permission, value, world) VALUES (?, ?, ?, ?)")) {
+            ps.setLong(1, groupId);
+            ps.setString(2, "anvil.fly");
+            ps.setInt(3, 1);
+            ps.setString(4, "lobby");
+            ps.executeUpdate();
+        }
+
+        // Duplicate same world should fail
+        assertThrows(Exception.class, () -> {
+            try (var conn = db.getConnection();
+                 var ps = conn.prepareStatement(
+                     "INSERT INTO group_permissions (group_id, permission, value, world) VALUES (?, ?, ?, ?)")) {
+                ps.setLong(1, groupId);
+                ps.setString(2, "anvil.fly");
+                ps.setInt(3, 0);
+                ps.setString(4, "lobby");
+                ps.executeUpdate();
+            }
+        });
+    }
+
+    @Test
+    void differentWorldSpecificsAllowed() throws Exception {
+        var groupRepo = new GroupRepository(db);
+        long groupId = groupRepo.create("VIP", 10, "");
+
+        // Insert for lobby
+        try (var conn = db.getConnection();
+             var ps = conn.prepareStatement(
+                 "INSERT INTO group_permissions (group_id, permission, value, world) VALUES (?, ?, ?, ?)")) {
+            ps.setLong(1, groupId);
+            ps.setString(2, "anvil.fly");
+            ps.setInt(3, 1);
+            ps.setString(4, "lobby");
+            ps.executeUpdate();
+        }
+
+        // Insert for skyblock — same permission, different world → should succeed
+        try (var conn = db.getConnection();
+             var ps = conn.prepareStatement(
+                 "INSERT INTO group_permissions (group_id, permission, value, world) VALUES (?, ?, ?, ?)")) {
+            ps.setLong(1, groupId);
+            ps.setString(2, "anvil.fly");
+            ps.setInt(3, 0);
+            ps.setString(4, "skyblock");
+            ps.executeUpdate();
+        }
+
+        try (var conn = db.getConnection();
+             var ps = conn.prepareStatement(
+                 "SELECT COUNT(*) FROM group_permissions WHERE group_id = ?")) {
+            ps.setLong(1, groupId);
+            try (var rs = ps.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals(2, rs.getInt(1));
+            }
+        }
+    }
+
+    @Test
+    void userWorldColumnExists() throws Exception {
+        UUID uuid = UUID.randomUUID();
+        var userRepo = new UserRepository(db);
+        userRepo.create(uuid, "Colsson");
+
+        // Insert with world
+        try (var conn = db.getConnection();
+             var ps = conn.prepareStatement(
+                 "INSERT INTO user_permissions (user_uuid, permission, value, world) VALUES (?, ?, ?, ?)")) {
+            ps.setString(1, uuid.toString());
+            ps.setString(2, "anvil.fly");
+            ps.setInt(3, 1);
+            ps.setString(4, "lobby");
+            ps.executeUpdate();
+        }
+
+        // Verify both global and world-specific
+        try (var conn = db.getConnection();
+             var ps = conn.prepareStatement(
+                 "INSERT INTO user_permissions (user_uuid, permission, value, world) VALUES (?, ?, ?, ?)")) {
+            ps.setString(1, uuid.toString());
+            ps.setString(2, "anvil.fly");
+            ps.setInt(3, 0);
+            ps.setNull(4, java.sql.Types.VARCHAR);
+            ps.executeUpdate();
+        }
+
+        try (var conn = db.getConnection();
+             var ps = conn.prepareStatement(
+                 "SELECT COUNT(*) FROM user_permissions WHERE user_uuid = ?")) {
+            ps.setString(1, uuid.toString());
+            try (var rs = ps.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals(2, rs.getInt(1));
+            }
+        }
+    }
+
+    @Test
+    void clearGroupPermissionsRemovesWorldSpecific() throws Exception {
+        var groupRepo = new GroupRepository(db);
+        long groupId = groupRepo.create("VIP", 10, "");
+
+        // Insert global + world-specific
+        try (var conn = db.getConnection()) {
+            try (var ps = conn.prepareStatement(
+                     "INSERT INTO group_permissions (group_id, permission, value, world) VALUES (?, ?, ?, ?)")) {
+                ps.setLong(1, groupId);
+                ps.setString(2, "anvil.fly");
+                ps.setInt(3, 1);
+                ps.setNull(4, java.sql.Types.VARCHAR);
+                ps.executeUpdate();
+            }
+            try (var ps = conn.prepareStatement(
+                     "INSERT INTO group_permissions (group_id, permission, value, world) VALUES (?, ?, ?, ?)")) {
+                ps.setLong(1, groupId);
+                ps.setString(2, "anvil.fly");
+                ps.setInt(3, 0);
+                ps.setString(4, "skyblock");
+                ps.executeUpdate();
+            }
+        }
+
+        // clearGroupPermissions should remove all
+        repo.clearGroupPermissions(groupId);
+
+        try (var conn = db.getConnection();
+             var ps = conn.prepareStatement(
+                 "SELECT COUNT(*) FROM group_permissions WHERE group_id = ?")) {
+            ps.setLong(1, groupId);
+            try (var rs = ps.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals(0, rs.getInt(1));
+            }
+        }
+    }
 }

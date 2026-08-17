@@ -53,8 +53,9 @@ public class TestDatabaseHelper {
                     group_id INTEGER NOT NULL,
                     permission TEXT NOT NULL,
                     value INTEGER NOT NULL,
+                    world TEXT DEFAULT NULL,
                     FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
-                    UNIQUE(group_id, permission)
+                    UNIQUE(group_id, permission, world)
                 )
             """);
 
@@ -64,8 +65,9 @@ public class TestDatabaseHelper {
                     user_uuid TEXT NOT NULL,
                     permission TEXT NOT NULL,
                     value INTEGER NOT NULL,
+                    world TEXT DEFAULT NULL,
                     FOREIGN KEY (user_uuid) REFERENCES users(uuid) ON DELETE CASCADE,
-                    UNIQUE(user_uuid, permission)
+                    UNIQUE(user_uuid, permission, world)
                 )
             """);
 

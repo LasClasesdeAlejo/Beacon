@@ -189,6 +189,36 @@ public class BeaconPlugin {
                 server VARCHAR(64)
             )
             """,
+            // V8 — World-specific permissions: recrear tablas con columna world
+            // y UNIQUE constraint actualizado
+            """
+            CREATE TABLE group_permissions_new (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                group_id BIGINT NOT NULL,
+                permission VARCHAR(128) NOT NULL,
+                value TINYINT(1) NOT NULL,
+                world VARCHAR(64) DEFAULT NULL,
+                FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE,
+                UNIQUE(group_id, permission, world)
+            );
+            INSERT INTO group_permissions_new (id, group_id, permission, value)
+                SELECT id, group_id, permission, value FROM group_permissions;
+            DROP TABLE group_permissions;
+            ALTER TABLE group_permissions_new RENAME TO group_permissions;
+            CREATE TABLE user_permissions_new (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                user_uuid VARCHAR(36) NOT NULL,
+                permission VARCHAR(128) NOT NULL,
+                value TINYINT(1) NOT NULL,
+                world VARCHAR(64) DEFAULT NULL,
+                FOREIGN KEY (user_uuid) REFERENCES users(uuid) ON DELETE CASCADE,
+                UNIQUE(user_uuid, permission, world)
+            );
+            INSERT INTO user_permissions_new (id, user_uuid, permission, value)
+                SELECT id, user_uuid, permission, value FROM user_permissions;
+            DROP TABLE user_permissions;
+            ALTER TABLE user_permissions_new RENAME TO user_permissions
+            """,
         };
     }
 }
