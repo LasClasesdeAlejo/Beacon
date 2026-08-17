@@ -1,0 +1,22 @@
+package com.colsson.beacon.model;
+
+/**
+ * Tipos de acciones auditables en Beacon.
+ */
+public enum AuditAction {
+    GROUP_CREATE,
+    GROUP_DELETE,
+    GROUP_RENAME,
+    GROUP_EDIT_PRIORITY,
+    GROUP_EDIT_DESCRIPTION,
+    GROUP_PARENT_SET,
+    GROUP_PARENT_REMOVE,
+    GROUP_PERMISSION_SET,
+    GROUP_PERMISSION_REMOVE,
+    GROUP_PERMISSION_CLEAR,
+    USER_GROUP_ADD,
+    USER_GROUP_REMOVE,
+    USER_PERMISSION_SET,
+    USER_PERMISSION_REMOVE,
+    USER_PERMISSION_CLEAR
+}
