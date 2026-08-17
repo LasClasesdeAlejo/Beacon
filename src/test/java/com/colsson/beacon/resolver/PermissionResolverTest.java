@@ -727,4 +727,164 @@ class PermissionResolverTest {
             assertEquals("MVP++", result.source());
         }
     }
+
+    // ══════════════════════════════════════════════════════════
+    // World-specific permissions
+    // ══════════════════════════════════════════════════════════
+
+    @Nested
+    class WorldSpecific {
+
+        @Test
+        void worldSpecificDirectOverridesGlobal() {
+            User u = user("Colsson");
+            u.setDirectPermission("anvil.fly", true);              // global
+            u.setDirectPermission("anvil.fly", false, "skyblock"); // world-specific
+
+            // skyblock: world-specific FALSE gana
+            assertEquals(PermissionState.FALSE,
+                resolver.resolve(u, "anvil.fly", "skyblock").state());
+            // lobby: usa global TRUE
+            assertEquals(PermissionState.TRUE,
+                resolver.resolve(u, "anvil.fly", "lobby").state());
+        }
+
+        @Test
+        void worldSpecificGroupOverridesGlobalGroup() {
+            User u = user("Colsson");
+            Group defaultGroup = new Group(1, "default", 0);
+            defaultGroup.setPermission("anvil.fly", true);              // global
+            defaultGroup.setPermission("anvil.fly", false, "skyblock"); // world-specific
+            u.addGroup(defaultGroup);
+
+            assertEquals(PermissionState.FALSE,
+                resolver.resolve(u, "anvil.fly", "skyblock").state());
+            assertEquals(PermissionState.TRUE,
+                resolver.resolve(u, "anvil.fly", "lobby").state());
+        }
+
+        @Test
+        void worldSpecificUndefinedFallsToGlobal() {
+            User u = user("Colsson");
+            Group defaultGroup = new Group(1, "default", 0);
+            defaultGroup.setPermission("anvil.fly", true); // global only
+            u.addGroup(defaultGroup);
+
+            // skyblock no tiene world-specific → usa global
+            assertEquals(PermissionState.TRUE,
+                resolver.resolve(u, "anvil.fly", "skyblock").state());
+        }
+
+        @Test
+        void worldSpecificAncestorOverridesGlobal() {
+            User u = user("Colsson");
+            Group child = new Group(1, "child", 10);
+            Group parent = new Group(2, "parent", 0);
+            parent.setPermission("anvil.fly", true);              // global
+            parent.setPermission("anvil.fly", false, "skyblock"); // world-specific
+            child.addParent(parent);
+            u.addGroup(child);
+
+            assertEquals(PermissionState.FALSE,
+                resolver.resolve(u, "anvil.fly", "skyblock").state());
+            assertEquals(PermissionState.TRUE,
+                resolver.resolve(u, "anvil.fly", "lobby").state());
+        }
+
+        @Test
+        void worldSpecificPriorityBetweenGroups() {
+            User u = user("Colsson");
+            Group low = new Group(1, "low", 10);
+            Group high = new Group(2, "high", 50);
+            low.setPermission("anvil.fly", true, "skyblock");
+            high.setPermission("anvil.fly", false, "skyblock");
+            u.addGroup(low);
+            u.addGroup(high);
+
+            // high (priority 50) gana sobre low (priority 10)
+            assertEquals(PermissionState.FALSE,
+                resolver.resolve(u, "anvil.fly", "skyblock").state());
+        }
+
+        @Test
+        void worldSpecificVsGlobalPriority() {
+            User u = user("Colsson");
+            Group low = new Group(1, "low", 10);
+            Group high = new Group(2, "high", 50);
+            low.setPermission("anvil.fly", true, "skyblock"); // world-specific
+            high.setPermission("anvil.fly", true);            // global
+            u.addGroup(low);
+            u.addGroup(high);
+
+            // Both TRUE → TRUE wins regardless
+            assertEquals(PermissionState.TRUE,
+                resolver.resolve(u, "anvil.fly", "skyblock").state());
+        }
+
+        @Test
+        void nullWorldResolvesGlobal() {
+            User u = user("Colsson");
+            u.setDirectPermission("anvil.fly", true);
+
+            assertEquals(PermissionState.TRUE,
+                resolver.resolve(u, "anvil.fly", null).state());
+            assertEquals(PermissionState.TRUE,
+                resolver.resolve(u, "anvil.fly").state());
+        }
+
+        @Test
+        void worldSpecificTraceIncludesWorld() {
+            User u = user("Colsson");
+            u.setDirectPermission("anvil.fly", false, "skyblock");
+
+            PermissionResult result = resolver.resolve(u, "anvil.fly", "skyblock");
+            assertTrue(result.trace().contains("skyblock"));
+        }
+
+        @Test
+        void worldSpecificSourceIncludesWorld() {
+            User u = user("Colsson");
+            u.setDirectPermission("anvil.fly", false, "skyblock");
+
+            PermissionResult result = resolver.resolve(u, "anvil.fly", "skyblock");
+            assertTrue(result.source().contains("skyblock"));
+        }
+
+        @Test
+        void multipleWorldsIndependent() {
+            User u = user("Colsson");
+            Group g = new Group(1, "default", 0);
+            g.setPermission("anvil.fly", true, "lobby");
+            g.setPermission("anvil.fly", false, "skyblock");
+            g.setPermission("anvil.fly", true, "survival");
+            u.addGroup(g);
+
+            assertEquals(PermissionState.TRUE,
+                resolver.resolve(u, "anvil.fly", "lobby").state());
+            assertEquals(PermissionState.FALSE,
+                resolver.resolve(u, "anvil.fly", "skyblock").state());
+            assertEquals(PermissionState.TRUE,
+                resolver.resolve(u, "anvil.fly", "survival").state());
+        }
+
+        @Test
+        void worldSpecificRemoveRestoresGlobal() {
+            User u = user("Colsson");
+            Group g = new Group(1, "default", 0);
+            g.setPermission("anvil.fly", true);              // global
+            g.setPermission("anvil.fly", false, "skyblock"); // world-specific
+            u.addGroup(g);
+
+            // Initially FALSE in skyblock
+            assertEquals(PermissionState.FALSE,
+                resolver.resolve(u, "anvil.fly", "skyblock").state());
+
+            // Remove world-specific
+            g.removePermission("anvil.fly", "skyblock");
+
+            // Now falls to global TRUE
+            assertEquals(PermissionState.TRUE,
+                resolver.resolve(u, "anvil.fly", "skyblock").state());
+        }
+    }
 }

@@ -18,33 +18,50 @@ import java.util.*;
  *   <li>Conflicto TRUE vs FALSE: gana mayor prioridad numérica</li>
  *   <li>UNDEFINED nunca compite como negación</li>
  * </ol>
+ *
+ * <p>World-specific permissions:
+ * <ul>
+ *   <li>Para cada fuente, se busca world-specific primero</li>
+ *   <li>Si no está definido world-specific → se usa global</li>
+ *   <li>World-specific UNDEFINED no bloquea el global</li>
+ * </ul>
  */
 public class PermissionResolver {
 
     /**
-     * Resuelve el estado de un permiso para un usuario.
+     * Resuelve el estado de un permiso para un usuario (global).
+     */
+    public PermissionResult resolve(User user, String permission) {
+        return resolve(user, permission, null);
+    }
+
+    /**
+     * Resuelve el estado de un permiso para un usuario en un mundo específico.
      *
      * @param user       el usuario a consultar
      * @param permission el nodo de permiso (ej: "anvil.fly")
+     * @param world      el mundo (null = global)
      * @return PermissionResult con estado, fuente y traza completa
      */
-    public PermissionResult resolve(User user, String permission) {
+    public PermissionResult resolve(User user, String permission, String world) {
         if (user == null || permission == null || permission.isBlank()) {
             return PermissionResult.undefined();
         }
 
         // 1. Permisos directos del usuario — máxima prioridad
-        PermissionState directState = user.getDirectPermissionState(permission);
+        PermissionState directState = user.getDirectPermissionState(permission, world);
         if (directState.isDefined()) {
+            String scope = world != null ? "direct [" + world + "]" : "direct";
             return new PermissionResult(
                 directState,
-                "direct",
+                scope,
                 "Direct user permission: " + permission + " = " + directState
+                    + (world != null ? " (world: " + world + ")" : "")
             );
         }
 
         // 2. Recopilar permisos definidos de todos los grupos y ancestros
-        List<SourceEntry> defined = collectDefinedPermissions(user, permission);
+        List<SourceEntry> defined = collectDefinedPermissions(user, permission, world);
 
         // 3. Si no hay ninguno definido → UNDEFINED
         if (defined.isEmpty()) {
@@ -57,39 +74,52 @@ public class PermissionResolver {
         return new PermissionResult(
             winner.state(),
             winner.sourceName(),
-            buildTrace(permission, winner, defined)
+            buildTrace(permission, world, winner, defined)
         );
     }
 
     /**
      * Recopila todos los permisos definidos (TRUE o FALSE) para un nodo
      * dado, provenientes de los grupos directos del usuario y sus ancestros.
+     *
+     * <p>Para cada fuente (grupo/ancestro):
+     * <ol>
+     *   <li>Busca world-specific para `world`</li>
+     *   <li>Si no está definido → usa global</li>
+     *   <li>Si alguno está definido → lo agrega</li>
+     * </ol>
      */
-    private List<SourceEntry> collectDefinedPermissions(User user, String permission) {
+    private List<SourceEntry> collectDefinedPermissions(User user, String permission,
+                                                         String world) {
         List<SourceEntry> entries = new ArrayList<>();
 
         for (Group group : user.groups()) {
-            collectFromGroupAndAncestors(group, permission, entries);
+            collectFromGroupAndAncestors(group, permission, world, entries);
         }
 
         return entries;
     }
 
     private void collectFromGroupAndAncestors(Group group, String permission,
+                                               String world,
                                                List<SourceEntry> entries) {
         // Permiso del grupo actual
-        addIfDefined(group, permission, entries);
+        addIfDefined(group, permission, world, entries);
 
         // Permisos de ancestros (misma prioridad que el grupo hijo)
         for (Group ancestor : group.ancestors()) {
-            addIfDefined(ancestor, permission, entries);
+            addIfDefined(ancestor, permission, world, entries);
         }
     }
 
-    private void addIfDefined(Group group, String permission, List<SourceEntry> entries) {
-        PermissionState state = group.getPermissionState(permission);
+    private void addIfDefined(Group group, String permission, String world,
+                               List<SourceEntry> entries) {
+        PermissionState state = group.getPermissionState(permission, world);
         if (state.isDefined()) {
-            entries.add(new SourceEntry(state, group.priority(), group.name()));
+            String sourceName = world != null
+                ? group.name() + " [" + world + "]"
+                : group.name();
+            entries.add(new SourceEntry(state, group.priority(), sourceName));
         }
     }
 
@@ -109,10 +139,14 @@ public class PermissionResolver {
         return winner;
     }
 
-    private String buildTrace(String permission, SourceEntry winner,
-                               List<SourceEntry> all) {
+    private String buildTrace(String permission, String world,
+                               SourceEntry winner, List<SourceEntry> all) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Permission: ").append(permission).append("\n");
+        sb.append("Permission: ").append(permission);
+        if (world != null) {
+            sb.append(" (world: ").append(world).append(")");
+        }
+        sb.append("\n");
 
         sb.append("Defined sources:\n");
         for (SourceEntry entry : all) {
