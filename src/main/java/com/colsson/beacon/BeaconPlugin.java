@@ -39,18 +39,10 @@ public class BeaconPlugin {
     }
 
     /**
-     * Inicializa el plugin con la configuración dada (sin Paper).
+     * Inicializa el plugin con la configuración dada.
+     * POJO testeable sin dependencia Paper.
      */
     public void enable(BeaconConfig config) {
-        enable(config, null);
-    }
-
-    /**
-     * Inicializa el plugin con la configuración dada.
-     *
-     * @param paperPlugin referencia al JavaPlugin Paper (null en tests)
-     */
-    public void enable(BeaconConfig config, Object paperPlugin) {
         this.config = config;
         logger.info("Iniciando Beacon...");
 

@@ -2,9 +2,10 @@ package com.colsson.beacon.config;
 
 /**
  * Configuración de Beacon.
- * Paper-independiente: loads desde YAML o defaults.
+ * POJO puro sin dependencia Paper.
  *
- * <p>En Fase 8, el adaptador Paper lee config.yml y llena este POJO.
+ * <p>En producción, BeaconJavaPlugin lee config.yml
+ * y llena este POJO via Bukkit API.
  */
 public class BeaconConfig {
 

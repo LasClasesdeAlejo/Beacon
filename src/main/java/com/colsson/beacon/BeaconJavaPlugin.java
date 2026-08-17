@@ -23,7 +23,7 @@ public class BeaconJavaPlugin extends JavaPlugin {
     public void onEnable() {
         BeaconConfig config = loadConfig();
         beacon = new BeaconPlugin(getLogger());
-        beacon.enable(config, this);
+        beacon.enable(config);
 
         if (beacon.isEnabled()) {
             registerCommands();
