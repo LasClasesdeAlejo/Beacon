@@ -443,4 +443,126 @@ class PermissionRepositoryTest {
             }
         }
     }
+
+    // ── Phase 9.4: Repository methods ───────────────────────
+
+    @Test
+    void setGroupPermissionWithWorld() throws Exception {
+        var groupRepo = new GroupRepository(db);
+        long groupId = groupRepo.create("VIP", 10, "");
+
+        repo.setGroupPermission(groupId, "anvil.fly", true, "lobby");
+        repo.setGroupPermission(groupId, "anvil.fly", false, "skyblock");
+
+        var byWorld = repo.getGroupPermissionsByWorld(groupId);
+        assertEquals(2, byWorld.size());
+        assertTrue(byWorld.get("lobby").get("anvil.fly"));
+        assertFalse(byWorld.get("skyblock").get("anvil.fly"));
+    }
+
+    @Test
+    void setGroupPermissionWorldDoesNotAffectGlobal() throws Exception {
+        var groupRepo = new GroupRepository(db);
+        long groupId = groupRepo.create("VIP", 10, "");
+
+        repo.setGroupPermission(groupId, "anvil.fly", true);          // global
+        repo.setGroupPermission(groupId, "anvil.fly", false, "lobby"); // world
+
+        var byWorld = repo.getGroupPermissionsByWorld(groupId);
+        assertEquals(2, byWorld.size());
+        assertTrue(byWorld.get(null).get("anvil.fly"));   // global
+        assertFalse(byWorld.get("lobby").get("anvil.fly")); // world
+    }
+
+    @Test
+    void setGroupPermissionGlobalDoesNotAffectWorld() throws Exception {
+        var groupRepo = new GroupRepository(db);
+        long groupId = groupRepo.create("VIP", 10, "");
+
+        repo.setGroupPermission(groupId, "anvil.fly", true);           // global
+        repo.setGroupPermission(groupId, "anvil.fly", false, "lobby"); // world
+
+        // Global set (old API) only affects global row
+        var byWorld = repo.getGroupPermissionsByWorld(groupId);
+        assertEquals(2, byWorld.size());
+        assertTrue(byWorld.get(null).get("anvil.fly"));  // global
+        assertFalse(byWorld.get("lobby").get("anvil.fly")); // world preserved
+    }
+
+    @Test
+    void removeGroupPermissionWorldPreservesGlobal() throws Exception {
+        var groupRepo = new GroupRepository(db);
+        long groupId = groupRepo.create("VIP", 10, "");
+
+        repo.setGroupPermission(groupId, "anvil.fly", true);          // global
+        repo.setGroupPermission(groupId, "anvil.fly", false, "lobby"); // world
+
+        repo.removeGroupPermission(groupId, "anvil.fly", "lobby");
+
+        var byWorld = repo.getGroupPermissionsByWorld(groupId);
+        assertEquals(1, byWorld.size());
+        assertTrue(byWorld.get(null).get("anvil.fly"));
+    }
+
+    @Test
+    void removeGroupPermissionGlobalPreservesWorld() throws Exception {
+        var groupRepo = new GroupRepository(db);
+        long groupId = groupRepo.create("VIP", 10, "");
+
+        repo.setGroupPermission(groupId, "anvil.fly", true);          // global
+        repo.setGroupPermission(groupId, "anvil.fly", false, "lobby"); // world
+
+        repo.removeGroupPermission(groupId, "anvil.fly", null);
+
+        var byWorld = repo.getGroupPermissionsByWorld(groupId);
+        assertEquals(1, byWorld.size());
+        assertFalse(byWorld.get("lobby").get("anvil.fly"));
+    }
+
+    @Test
+    void setUserPermissionWithWorld() throws Exception {
+        UUID uuid = UUID.randomUUID();
+        var userRepo = new UserRepository(db);
+        userRepo.create(uuid, "Colsson");
+
+        repo.setUserPermission(uuid, "anvil.fly", true, "lobby");
+        repo.setUserPermission(uuid, "anvil.fly", false, "skyblock");
+
+        var byWorld = repo.getUserPermissionsByWorld(uuid);
+        assertEquals(2, byWorld.size());
+        assertTrue(byWorld.get("lobby").get("anvil.fly"));
+        assertFalse(byWorld.get("skyblock").get("anvil.fly"));
+    }
+
+    @Test
+    void removeUserPermissionWorldPreservesGlobal() throws Exception {
+        UUID uuid = UUID.randomUUID();
+        var userRepo = new UserRepository(db);
+        userRepo.create(uuid, "Colsson");
+
+        repo.setUserPermission(uuid, "anvil.fly", true);          // global
+        repo.setUserPermission(uuid, "anvil.fly", false, "lobby"); // world
+
+        repo.removeUserPermission(uuid, "anvil.fly", "lobby");
+
+        var byWorld = repo.getUserPermissionsByWorld(uuid);
+        assertEquals(1, byWorld.size());
+        assertTrue(byWorld.get(null).get("anvil.fly"));
+    }
+
+    @Test
+    void removeUserPermissionGlobalPreservesWorld() throws Exception {
+        UUID uuid = UUID.randomUUID();
+        var userRepo = new UserRepository(db);
+        userRepo.create(uuid, "Colsson");
+
+        repo.setUserPermission(uuid, "anvil.fly", true);          // global
+        repo.setUserPermission(uuid, "anvil.fly", false, "lobby"); // world
+
+        repo.removeUserPermission(uuid, "anvil.fly", null);
+
+        var byWorld = repo.getUserPermissionsByWorld(uuid);
+        assertEquals(1, byWorld.size());
+        assertFalse(byWorld.get("lobby").get("anvil.fly"));
+    }
 }
