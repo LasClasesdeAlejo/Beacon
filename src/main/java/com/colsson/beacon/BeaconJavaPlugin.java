@@ -66,7 +66,7 @@ public class BeaconJavaPlugin extends JavaPlugin {
 
     private void registerCommands() {
         var router = beacon.getCommandRouter();
-        var executor = new PaperCommandExecutor(router, getServer());
+        var executor = new PaperCommandExecutor(router, getServer(), beacon.getApi());
 
         getCommand("beacon").setExecutor(executor);
         getCommand("beacon").setTabCompleter(executor);
