@@ -384,6 +384,27 @@ class PermissionResolverTest {
             assertEquals(PermissionState.TRUE, result.state());
             assertEquals("STAFF-BASE", result.source());
         }
+
+        @Test
+        void ancestorOverridesChildWhenHigherPriority() {
+            // STAFF I (50) → anvil.fly = FALSE
+            // STAFF BASE (100) → anvil.fly = TRUE
+            // El ancestro tiene mayor prioridad → TRUE gana
+            Group staffBase = new Group(1, "STAFF-BASE", 100);
+            staffBase.setPermission("anvil.fly", true);
+
+            Group staff1 = new Group(2, "STAFF-I", 50);
+            staff1.setPermission("anvil.fly", false);
+            staff1.addParent(staffBase);
+
+            User u = user("Mod");
+            u.addGroup(staff1);
+
+            PermissionResult result = resolver.resolve(u, "anvil.fly");
+
+            assertEquals(PermissionState.TRUE, result.state());
+            assertEquals("STAFF-BASE", result.source());
+        }
     }
 
     // ══════════════════════════════════════════════════════════
