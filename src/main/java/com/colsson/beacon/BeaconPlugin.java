@@ -10,10 +10,10 @@ import com.colsson.beacon.resolver.PermissionResolver;
 import java.util.logging.Logger;
 
 /**
- * Punto de entrada de Beacon.
+ * Lógica central de Beacon (POJO testeable).
  *
- * <p>En Fase 8, esta clase extenderá JavaPlugin de Paper.
- * Actualmente es un POJO para tests y validación de la lógica.
+ * <p>Sin dependencia Paper. En producción, {@link BeaconJavaPlugin}
+ * extiende JavaPlugin y delega a esta clase.
  *
  * <p>Ciclo de vida:
  * <pre>
@@ -39,9 +39,18 @@ public class BeaconPlugin {
     }
 
     /**
-     * Inicializa el plugin con la configuración dada.
+     * Inicializa el plugin con la configuración dada (sin Paper).
      */
     public void enable(BeaconConfig config) {
+        enable(config, null);
+    }
+
+    /**
+     * Inicializa el plugin con la configuración dada.
+     *
+     * @param paperPlugin referencia al JavaPlugin Paper (null en tests)
+     */
+    public void enable(BeaconConfig config, Object paperPlugin) {
         this.config = config;
         logger.info("Iniciando Beacon...");
 

@@ -1,6 +1,6 @@
 name: Beacon
 version: 1.0.0
-main: com.colsson.beacon.BeaconPlugin
+main: com.colsson.beacon.BeaconJavaPlugin
 api-version: '1.21'
 description: Sistema de permisos, grupos y herencia
 author: Colsson
