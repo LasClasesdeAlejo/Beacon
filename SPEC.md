@@ -283,6 +283,27 @@ permission set anvil.fly false  → almacena FALSE
 permission remove anvil.fly     → elimina asignación → UNDEFINED
 ```
 
+### Resolución por mundo (§6.1)
+
+Las permisos se pueden definir de forma **global** (world = NULL) o **world-specific** (world = nombre del mundo).
+
+**Regla:** Si existe una definición world-specific, se usa. Si NO existe, se cae al valor global.
+
+```text
+# Global: default tiene fly
+default → anvil.fly = TRUE
+
+# Override: deshabilitar fly en skyblock
+default → anvil.fly = FALSE @ skyblock
+
+# Resultado:
+lobby:    default → anvil.fly = TRUE  (global se usa)
+skyblock: default → anvil.fly = FALSE (world-specific gana)
+survival: default → anvil.fly = TRUE  (global se usa)
+```
+
+**Backward compatible:** Si no hay columnas world-specific, el sistema funciona igual que antes (todo global).
+
 ---
 
 ## 7. Múltiples grupos
@@ -335,8 +356,8 @@ Cache = aceleración
 ```text
 users
 groups
-group_permissions
-user_permissions
+group_permissions (permission + world)
+user_permissions (permission + world)
 group_inheritance
 audit_log
 schema_migrations
@@ -376,6 +397,7 @@ Comando → Validación → MySQL → invalidación de cache → auditoría
 - Escrituras siempre persisten en MySQL primero
 - La cache es invalidada al modificar datos
 - La cache se puede deshabilitar en config
+- Keys de permisos incluyen world: `uuid:perm:world` (null → "global")
 
 ---
 
@@ -403,8 +425,8 @@ Comando → Validación → MySQL → invalidación de cache → auditoría
 ```text
 /beacon user <usuario> group add <grupo> ["razón"]
 /beacon user <usuario> group remove <grupo> ["razón"]
-/beacon user <usuario> permission set <permiso> <true|false> ["razón"]
-/beacon user <usuario> permission remove <permiso> ["razón"]
+/beacon user <usuario> permission set <permiso> <true|false> ["mundo"] ["razón"]
+/beacon user <usuario> permission remove <permiso> ["mundo"] ["razón"]
 /beacon user <usuario> permission clear ["razón"]
 ```
 
@@ -437,8 +459,8 @@ Comando → Validación → MySQL → invalidación de cache → auditoría
 
 ```text
 /beacon group <grupo> permissions
-/beacon group <grupo> permission set <permiso> <true|false> ["razón"]
-/beacon group <grupo> permission remove <permiso> ["razón"]
+/beacon group <grupo> permission set <permiso> <true|false> ["mundo"] ["razón"]
+/beacon group <grupo> permission remove <permiso> ["mundo"] ["razón"]
 /beacon group <grupo> permission clear ["razón"]
 ```
 
@@ -453,11 +475,11 @@ Comando → Validación → MySQL → invalidación de cache → auditoría
 ### 11.9 Diagnóstico
 
 ```text
-/beacon check <usuario> <permiso>
+/beacon check <usuario> <permiso> ["mundo"]
 /beacon groups tree
 /beacon debug
 /beacon debug user <usuario>
-/beacon debug permission <usuario> <permiso>
+/beacon debug permission <usuario> <permiso> ["mundo"]
 ```
 
 ### 11.10 Historial (consulta)
@@ -513,10 +535,25 @@ com.colsson.beacon.api
 
 ```text
 getUser(UUID) → Optional<User>
+getUserByName(String) → Optional<User>
 getGroups(UUID) → List<Group>
 getGroup(String) → Optional<Group>
 hasPermission(UUID, String) → boolean
 getPermissionState(UUID, String) → PermissionResult
+
+# World-specific overloads
+hasPermission(UUID, String, String world) → boolean
+getPermissionState(UUID, String, String world) → PermissionResult
+
+# User permission modifications (with optional world)
+setUserPermission(UUID, String, boolean, [String world], String actor, String reason)
+removeUserPermission(UUID, String, [String world], String actor, String reason)
+clearUserPermissions(UUID, String actor, String reason)
+
+# Group permission modifications (with optional world)
+setGroupPermission(String, String, boolean, [String world], String actor, String reason)
+removeGroupPermission(String, String, [String world], String actor, String reason)
+clearGroupPermissions(String, String actor, String reason)
 ```
 
 ### Eventos
