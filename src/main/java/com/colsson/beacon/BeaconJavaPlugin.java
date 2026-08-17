@@ -1,6 +1,7 @@
 package com.colsson.beacon;
 
 import com.colsson.beacon.config.BeaconConfig;
+import com.colsson.beacon.listener.PlayerJoinListener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
@@ -27,6 +28,7 @@ public class BeaconJavaPlugin extends JavaPlugin {
 
         if (beacon.isEnabled()) {
             registerCommands();
+            registerListeners();
             getLogger().info("Beacon habilitado — servidor: " + config.getServerName());
         } else {
             getLogger().severe("Beacon no pudo habilitarse.");
@@ -64,10 +66,17 @@ public class BeaconJavaPlugin extends JavaPlugin {
 
     private void registerCommands() {
         var router = beacon.getCommandRouter();
-        var executor = new PaperCommandExecutor(router);
+        var executor = new PaperCommandExecutor(router, getServer());
 
         getCommand("beacon").setExecutor(executor);
         getCommand("beacon").setTabCompleter(executor);
+    }
+
+    // ── Listeners ───────────────────────────────────────────
+
+    private void registerListeners() {
+        getServer().getPluginManager().registerEvents(
+            new PlayerJoinListener(beacon.getDatabase(), getLogger()), this);
     }
 
     // ── Getter ──────────────────────────────────────────────

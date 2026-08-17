@@ -10,6 +10,8 @@ import java.util.*;
  * /beacon user <jugador> [info|groups|permissions|group|permission]
  * Maneja todo el enrutamiento internamente porque el primer arg
  * es un nombre de jugador (dinámico), no un subcomando fijo.
+ *
+ * <p>El primer arg acepta nombre de jugador O UUID.
  */
 public class UserCommandHandler implements CommandHandler {
 
@@ -24,10 +26,9 @@ public class UserCommandHandler implements CommandHandler {
         String subcommand = args[1].toLowerCase();
         String[] rest = Arrays.copyOfRange(args, 2, args.length);
 
-        UUID uuid = resolveUuid(playerName);
+        UUID uuid = resolveUuid(api, playerName);
         if (uuid == null) {
-            ctx.reply(MessageHelper.error("Jugador '" + playerName + "' no encontrado. " +
-                                          "Usa el UUID del jugador."));
+            ctx.reply(MessageHelper.error("Jugador '" + playerName + "' no encontrado."));
             return;
         }
 
@@ -218,12 +219,15 @@ public class UserCommandHandler implements CommandHandler {
 
     // ── Helpers ─────────────────────────────────────────────
 
-    private UUID resolveUuid(String nameOrUuid) {
+    private UUID resolveUuid(BeaconAPI api, String nameOrUuid) {
+        // 1. Intentar como UUID
         try {
             return UUID.fromString(nameOrUuid);
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
+        } catch (IllegalArgumentException ignored) {}
+
+        // 2. Buscar por nombre en la API
+        Optional<User> user = api.getUserByName(nameOrUuid);
+        return user.map(User::uuid).orElse(null);
     }
 
     private Boolean parseBoolean(String value) {

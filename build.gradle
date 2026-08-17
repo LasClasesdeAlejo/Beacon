@@ -1,9 +1,10 @@
 plugins {
     id 'java'
+    id 'com.gradleup.shadow' version '9.6.1'
 }
 
 group = 'com.colsson'
-version = '1.0-SNAPSHOT'
+version = '0.8.0'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -18,7 +19,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT'
+    compileOnly 'io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT'
     implementation 'com.zaxxer:HikariCP:5.1.0'
     implementation 'com.mysql:mysql-connector-j:9.2.0'
 
@@ -31,3 +32,15 @@ dependencies {
 test {
     useJUnitPlatform()
 }
+
+shadowJar {
+    archiveClassifier.set('')
+    archiveBaseName.set('Beacon')
+    archiveVersion.set('0.8.0')
+
+    dependencies {
+        exclude(dependency('io.papermc.paper:paper-api:.*'))
+    }
+}
+
+build.dependsOn shadowJar

@@ -21,6 +21,8 @@ public interface BeaconAPI {
 
     Optional<User> getUser(UUID uuid);
 
+    Optional<User> getUserByName(String name);
+
     List<User> findAllUsers();
 
     List<Group> getGroupsOf(UUID uuid);

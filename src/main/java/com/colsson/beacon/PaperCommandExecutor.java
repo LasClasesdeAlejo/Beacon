@@ -2,13 +2,16 @@ package com.colsson.beacon;
 
 import com.colsson.beacon.commands.BeaconCommandRouter;
 import com.colsson.beacon.commands.CommandContext;
+import org.bukkit.Server;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * Adaptador entre Paper (CommandSender) y Beacon (CommandContext).
@@ -19,9 +22,11 @@ import java.util.List;
 public class PaperCommandExecutor implements CommandExecutor, TabCompleter {
 
     private final BeaconCommandRouter router;
+    private final Server server;
 
-    public PaperCommandExecutor(BeaconCommandRouter router) {
+    public PaperCommandExecutor(BeaconCommandRouter router, Server server) {
         this.router = router;
+        this.server = server;
     }
 
     @Override
@@ -52,13 +57,12 @@ public class PaperCommandExecutor implements CommandExecutor, TabCompleter {
             ));
         } else if (args.length == 2) {
             switch (args[0].toLowerCase()) {
-                case "user" -> completions.add("<jugador>");
+                case "user", "check" -> completions.addAll(getOnlinePlayerNames());
                 case "group" -> {
                     completions.addAll(List.of("list", "create"));
-                    completions.add("<nombre>");
+                    completions.addAll(getOnlinePlayerNames());
                 }
                 case "permission" -> completions.addAll(List.of("list", "info", "search"));
-                case "check" -> completions.add("<jugador>");
                 case "debug" -> completions.addAll(List.of("user", "permission"));
                 case "groups" -> completions.add("tree");
                 case "history" -> completions.addAll(List.of("user", "group", "permission"));
@@ -69,7 +73,7 @@ public class PaperCommandExecutor implements CommandExecutor, TabCompleter {
                     switch (args[1].toLowerCase()) {
                         case "group" -> completions.addAll(List.of("add", "remove"));
                         case "permission" -> completions.addAll(List.of("set", "remove", "clear"));
-                        default -> completions.addAll(List.of("info", "groups", "permissions"));
+                        default -> completions.addAll(List.of("info", "groups", "permissions", "group", "permission"));
                     }
                 }
                 case "group" -> {
@@ -84,8 +88,7 @@ public class PaperCommandExecutor implements CommandExecutor, TabCompleter {
                 case "check" -> completions.add("<permiso>");
                 case "debug" -> {
                     switch (args[1].toLowerCase()) {
-                        case "user" -> completions.add("<jugador>");
-                        case "permission" -> completions.add("<jugador>");
+                        case "user", "permission" -> completions.addAll(getOnlinePlayerNames());
                     }
                 }
                 case "history" -> completions.add("<targeto>");
@@ -95,6 +98,12 @@ public class PaperCommandExecutor implements CommandExecutor, TabCompleter {
         String lastArg = args[args.length - 1].toLowerCase();
         return completions.stream()
             .filter(s -> s.toLowerCase().startsWith(lastArg))
+            .toList();
+    }
+
+    private List<String> getOnlinePlayerNames() {
+        return server.getOnlinePlayers().stream()
+            .map(Player::getName)
             .toList();
     }
 }

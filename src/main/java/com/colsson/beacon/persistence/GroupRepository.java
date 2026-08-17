@@ -23,7 +23,7 @@ public class GroupRepository {
     public long create(String name, int priority, String description) throws SQLException {
         try (Connection conn = db.getConnection();
              var ps = conn.prepareStatement(
-                 "INSERT INTO groups (name, priority, description) VALUES (?, ?, ?)",
+                 "INSERT INTO `groups` (name, priority, description) VALUES (?, ?, ?)",
                  java.sql.Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, name);
             ps.setInt(2, priority);
@@ -40,7 +40,7 @@ public class GroupRepository {
      */
     public void updateName(long id, String newName) throws SQLException {
         try (Connection conn = db.getConnection();
-             var ps = conn.prepareStatement("UPDATE groups SET name = ? WHERE id = ?")) {
+             var ps = conn.prepareStatement("UPDATE `groups` SET name = ? WHERE id = ?")) {
             ps.setString(1, newName);
             ps.setLong(2, id);
             ps.executeUpdate();
@@ -52,7 +52,7 @@ public class GroupRepository {
      */
     public void updatePriority(long id, int newPriority) throws SQLException {
         try (Connection conn = db.getConnection();
-             var ps = conn.prepareStatement("UPDATE groups SET priority = ? WHERE id = ?")) {
+             var ps = conn.prepareStatement("UPDATE `groups` SET priority = ? WHERE id = ?")) {
             ps.setInt(1, newPriority);
             ps.setLong(2, id);
             ps.executeUpdate();
@@ -64,7 +64,7 @@ public class GroupRepository {
      */
     public void updateDescription(long id, String newDescription) throws SQLException {
         try (Connection conn = db.getConnection();
-             var ps = conn.prepareStatement("UPDATE groups SET description = ? WHERE id = ?")) {
+             var ps = conn.prepareStatement("UPDATE `groups` SET description = ? WHERE id = ?")) {
             ps.setString(1, newDescription != null ? newDescription : "");
             ps.setLong(2, id);
             ps.executeUpdate();
@@ -90,7 +90,7 @@ public class GroupRepository {
                 ps3.setLong(1, id);
                 ps3.executeUpdate();
             }
-            try (var ps4 = conn.prepareStatement("DELETE FROM groups WHERE id = ?")) {
+            try (var ps4 = conn.prepareStatement("DELETE FROM `groups` WHERE id = ?")) {
                 ps4.setLong(1, id);
                 ps4.executeUpdate();
             }
@@ -107,7 +107,7 @@ public class GroupRepository {
     public Optional<GroupRecord> findById(long id) throws SQLException {
         try (Connection conn = db.getConnection();
              var ps = conn.prepareStatement(
-                 "SELECT id, name, priority, description FROM groups WHERE id = ?")) {
+                 "SELECT id, name, priority, description FROM `groups` WHERE id = ?")) {
             ps.setLong(1, id);
             try (var rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -124,7 +124,7 @@ public class GroupRepository {
     public Optional<GroupRecord> findByName(String name) throws SQLException {
         try (Connection conn = db.getConnection();
              var ps = conn.prepareStatement(
-                 "SELECT id, name, priority, description FROM groups WHERE name = ?")) {
+                 "SELECT id, name, priority, description FROM `groups` WHERE name = ?")) {
             ps.setString(1, name);
             try (var rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -143,7 +143,7 @@ public class GroupRepository {
         try (Connection conn = db.getConnection();
              var stmt = conn.createStatement();
              var rs = stmt.executeQuery(
-                 "SELECT id, name, priority, description FROM groups ORDER BY priority DESC")) {
+                 "SELECT id, name, priority, description FROM `groups` ORDER BY priority DESC")) {
             while (rs.next()) {
                 groups.add(recordFromRow(rs));
             }

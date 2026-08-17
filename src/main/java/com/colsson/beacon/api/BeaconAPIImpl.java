@@ -78,6 +78,18 @@ public class BeaconAPIImpl implements BeaconAPI {
     }
 
     @Override
+    public Optional<User> getUserByName(String name) {
+        try {
+            Optional<UserRecord> record = userRepo.findByName(name);
+            if (record.isEmpty()) return Optional.empty();
+            return getUser(record.get().uuid());
+        } catch (SQLException e) {
+            logger.severe("Error loading user by name " + name + ": " + e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    @Override
     public List<User> findAllUsers() {
         try {
             List<UserRecord> records = userRepo.findAll();
@@ -299,7 +311,7 @@ public class BeaconAPIImpl implements BeaconAPI {
             try (Connection conn = db.getConnection()) {
                 for (long parentId : parentIds) {
                     try (var ps = conn.prepareStatement(
-                             "SELECT id, name, priority, description FROM groups WHERE id = ?")) {
+                             "SELECT id, name, priority, description FROM `groups` WHERE id = ?")) {
                         ps.setLong(1, parentId);
                         try (var rs = ps.executeQuery()) {
                             if (rs.next()) {
@@ -491,7 +503,7 @@ public class BeaconAPIImpl implements BeaconAPI {
 
         try (var ps = conn.prepareStatement(
                  "SELECT g.id, g.name, g.priority, g.description " +
-                 "FROM groups g JOIN user_groups ug ON g.id = ug.group_id " +
+                 "FROM `groups` g JOIN user_groups ug ON g.id = ug.group_id " +
                  "WHERE ug.user_uuid = ?")) {
             ps.setString(1, record.uuid().toString());
             try (var rs = ps.executeQuery()) {
@@ -556,7 +568,7 @@ public class BeaconAPIImpl implements BeaconAPI {
         Set<Group> parents = new LinkedHashSet<>();
         try (var ps = conn.prepareStatement(
                  "SELECT g.id, g.name, g.priority, g.description " +
-                 "FROM groups g JOIN group_inheritance gi ON g.id = gi.parent_id " +
+                 "FROM `groups` g JOIN group_inheritance gi ON g.id = gi.parent_id " +
                  "WHERE gi.child_id = ?")) {
             ps.setLong(1, groupId);
             try (var rs = ps.executeQuery()) {
@@ -576,7 +588,7 @@ public class BeaconAPIImpl implements BeaconAPI {
         Set<Group> children = new LinkedHashSet<>();
         try (var ps = conn.prepareStatement(
                  "SELECT g.id, g.name, g.priority, g.description " +
-                 "FROM groups g JOIN group_inheritance gi ON g.id = gi.child_id " +
+                 "FROM `groups` g JOIN group_inheritance gi ON g.id = gi.child_id " +
                  "WHERE gi.parent_id = ?")) {
             ps.setLong(1, groupId);
             try (var rs = ps.executeQuery()) {
