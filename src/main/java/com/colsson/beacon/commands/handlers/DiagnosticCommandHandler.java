@@ -20,23 +20,27 @@ public class DiagnosticCommandHandler {
         router.register("debug", this::handleDebug);
     }
 
-    // /beacon check <jugador> <permiso>
+    // /beacon check <jugador> <permiso> [mundo]
     private void handleCheck(BeaconAPI api, CommandContext ctx, String[] args) {
         if (args.length < 2) {
-            ctx.reply(MessageHelper.error("Uso: /beacon check <jugador> <permiso>"));
+            ctx.reply(MessageHelper.error("Uso: /beacon check <jugador> <permiso> [mundo]"));
             return;
         }
         String playerName = args[0];
         String permission = args[1];
+        String world = args.length > 2 ? args[2] : null;
         UUID uuid = resolveUuid(playerName);
         if (uuid == null) {
             ctx.reply(MessageHelper.error("Jugador '" + playerName + "' no encontrado."));
             return;
         }
 
-        PermissionResult result = api.getPermissionState(uuid, permission);
+        PermissionResult result = api.getPermissionState(uuid, permission, world);
 
         ctx.reply(MessageHelper.header("Check: " + playerName + " → " + permission));
+        if (world != null) {
+            ctx.reply(MessageHelper.keyValue("Mundo", world));
+        }
         ctx.reply(MessageHelper.keyValue("Estado", formatState(result.state())));
         ctx.reply(MessageHelper.keyValue("Fuente", result.source()));
         if (result.trace() != null && !result.trace().isBlank()) {
@@ -91,17 +95,18 @@ public class DiagnosticCommandHandler {
         }
     }
 
-    // /beacon debug [user|permission] [jugador] [permiso]
+    // /beacon debug [user|permission] [jugador] [permiso] [mundo]
     private void handleDebug(BeaconAPI api, CommandContext ctx, String[] args) {
         if (args.length == 0) {
             handleDebugGeneral(api, ctx);
         } else if (args[0].equalsIgnoreCase("user") && args.length >= 2) {
             handleDebugUser(api, ctx, args[1]);
         } else if (args[0].equalsIgnoreCase("permission") && args.length >= 3) {
-            handleDebugPermission(api, ctx, args[1], args[2]);
+            String world = args.length > 3 ? args[3] : null;
+            handleDebugPermission(api, ctx, args[1], args[2], world);
         } else {
             ctx.reply(MessageHelper.error(
-                "Uso: /beacon debug [user <jugador> | permission <jugador> <permiso>]"));
+                "Uso: /beacon debug [user <jugador> | permission <jugador> <permiso> [mundo]]"));
         }
     }
 
@@ -151,17 +156,21 @@ public class DiagnosticCommandHandler {
         }
     }
 
+    // /beacon debug permission <jugador> <permiso> [mundo]
     private void handleDebugPermission(BeaconAPI api, CommandContext ctx,
-                                        String playerName, String permission) {
+                                        String playerName, String permission, String world) {
         UUID uuid = resolveUuid(playerName);
         if (uuid == null) {
             ctx.reply(MessageHelper.error("Jugador '" + playerName + "' no encontrado."));
             return;
         }
 
-        PermissionResult result = api.getPermissionState(uuid, permission);
+        PermissionResult result = api.getPermissionState(uuid, permission, world);
 
         ctx.reply(MessageHelper.header("Debug: " + playerName + " → " + permission));
+        if (world != null) {
+            ctx.reply(MessageHelper.keyValue("Mundo", world));
+        }
         ctx.reply(MessageHelper.keyValue("Estado", formatState(result.state())));
         ctx.reply(MessageHelper.keyValue("Fuente", result.source()));
         if (result.trace() != null) {

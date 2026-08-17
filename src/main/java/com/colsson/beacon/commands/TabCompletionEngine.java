@@ -26,7 +26,7 @@ import java.util.function.Supplier;
  * <code>&lt;nombre&gt;</code>, <code>&lt;permiso&gt;</code>,
  * <code>&lt;razón&gt;</code>, <code>&lt;nuevoNombre&gt;</code>,
  * <code>&lt;numero&gt;</code>, <code>&lt;texto&gt;</code>,
- * <code>&lt;padre&gt;</code>
+ * <code>&lt;padre&gt;</code>, <code>&lt;mundo&gt;</code>
  */
 public class TabCompletionEngine {
 
@@ -107,19 +107,26 @@ public class TabCompletionEngine {
 
                 // §11.3: user Colsson group add vip <TAB> → <razón>
                 //         user Colsson permission set test <TAB> → true|false
-                //         user Colsson permission remove/clear <TAB> → <razón>
+                //         user Colsson permission remove <TAB> → <mundo>|<razón>
                 case 6 -> {
                     switch (a2) {
                         case "group" -> c.add("<razón>");
                         case "permission" -> {
                             if ("set".equals(a3)) c.addAll(List.of("true", "false"));
-                            else c.add("<razón>");  // remove, clear
+                            else if ("remove".equals(a3)) c.addAll(List.of("<mundo>", "<razón>"));
                         }
                     }
                 }
 
-                // §11.3: user Colsson permission set test true <TAB> → <razón>
+                // §11.3: user Colsson permission set test true <TAB> → <mundo>|<razón>
                 case 7 -> {
+                    if ("permission".equals(a2) && "set".equals(a3)) {
+                        c.addAll(List.of("<mundo>", "<razón>"));
+                    }
+                }
+
+                // §11.3: user Colsson permission set test true world <TAB> → <razón>
+                case 8 -> {
                     if ("permission".equals(a2) && "set".equals(a3)) {
                         c.add("<razón>");
                     }
@@ -193,20 +200,28 @@ public class TabCompletionEngine {
                 //         §11.5: group admin edit priority 10 <TAB> → <razón>
                 //         §11.5: group admin edit description Texto <TAB> → <razón>
                 //         §11.6: group admin parent set vip <TAB> → <razón>
-                //         §11.7: group admin permission remove/clear test <TAB> → <razón>
+                //         §11.7: group admin permission set test <TAB> → true|false
+                //         §11.7: group admin permission remove <TAB> → <mundo>|<razón>
                 case 6 -> {
                     switch (a2) {
                         case "edit" -> c.add("<razón>");
                         case "parent" -> c.add("<razón>");
                         case "permission" -> {
                             if ("set".equals(a3)) c.addAll(List.of("true", "false"));
-                            else c.add("<razón>");  // remove, clear
+                            else if ("remove".equals(a3)) c.addAll(List.of("<mundo>", "<razón>"));
                         }
                     }
                 }
 
-                // §11.7: group admin permission set test true <TAB> → <razón>
+                // §11.7: group admin permission set test true <TAB> → <mundo>|<razón>
                 case 7 -> {
+                    if ("permission".equals(a2) && "set".equals(a3)) {
+                        c.addAll(List.of("<mundo>", "<razón>"));
+                    }
+                }
+
+                // §11.7: group admin permission set test true world <TAB> → <razón>
+                case 8 -> {
                     if ("permission".equals(a2) && "set".equals(a3)) {
                         c.add("<razón>");
                     }
@@ -238,6 +253,7 @@ public class TabCompletionEngine {
             switch (len) {
                 case 2 -> c.addAll(playerNamesSupplier.get());
                 case 3 -> c.add("<permiso>");
+                case 4 -> c.add("<mundo>");
             }
             return filter(c, last);
         }
@@ -264,6 +280,11 @@ public class TabCompletionEngine {
                 case 4 -> {
                     if ("permission".equals(a1)) {
                         c.add("<permiso>");
+                    }
+                }
+                case 5 -> {
+                    if ("permission".equals(a1)) {
+                        c.add("<mundo>");
                     }
                 }
             }

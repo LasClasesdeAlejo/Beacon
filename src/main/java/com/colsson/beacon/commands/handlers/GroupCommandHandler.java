@@ -257,7 +257,7 @@ public class GroupCommandHandler implements CommandHandler {
         if (args.length < 1) {
             ctx.reply(MessageHelper.error(
                 "Uso: /beacon group " + groupName +
-                " permission set|remove|clear [permiso] [true|false] [razón]"));
+                " permission set|remove|clear [permiso] [true|false] [mundo] [razón]"));
             return;
         }
 
@@ -267,12 +267,18 @@ public class GroupCommandHandler implements CommandHandler {
                 if (args.length < 3) {
                     ctx.reply(MessageHelper.error(
                         "Uso: /beacon group " + groupName +
-                        " permission set <permiso> <true|false> [razón]"));
+                        " permission set <permiso> <true|false> [mundo] [razón]"));
                     return;
                 }
                 String permission = args[1];
                 String valueStr = args[2];
-                String reason = args.length > 3 ? args[3] : null;
+                String world = args.length > 3 && !isBoolean(args[3]) ? args[3] : null;
+                String reason = null;
+                if (world != null && args.length > 4) {
+                    reason = args[4];
+                } else if (world == null && args.length > 3) {
+                    reason = args[3];
+                }
 
                 Boolean value = parseBoolean(valueStr);
                 if (value == null) {
@@ -282,9 +288,10 @@ public class GroupCommandHandler implements CommandHandler {
                 }
 
                 try {
-                    api.setGroupPermission(groupName, permission, value, ctx.senderName(), reason);
-                    ctx.reply(MessageHelper.success(
-                        "Permiso " + permission + " = " + value + " en grupo " + groupName + "."));
+                    api.setGroupPermission(groupName, permission, value, world, ctx.senderName(), reason);
+                    String msg = "Permiso " + permission + " = " + value + " en grupo " + groupName + ".";
+                    if (world != null) msg += " (mundo: " + world + ")";
+                    ctx.reply(MessageHelper.success(msg));
                 } catch (Exception e) {
                     ctx.reply(MessageHelper.error(e.getMessage()));
                 }
@@ -293,16 +300,18 @@ public class GroupCommandHandler implements CommandHandler {
                 if (args.length < 2) {
                     ctx.reply(MessageHelper.error(
                         "Uso: /beacon group " + groupName +
-                        " permission remove <permiso> [razón]"));
+                        " permission remove <permiso> [mundo] [razón]"));
                     return;
                 }
                 String permission = args[1];
-                String reason = args.length > 2 ? args[2] : null;
+                String world = args.length > 2 ? args[2] : null;
+                String reason = args.length > 3 ? args[3] : null;
 
                 try {
-                    api.removeGroupPermission(groupName, permission, ctx.senderName(), reason);
-                    ctx.reply(MessageHelper.success(
-                        "Permiso " + permission + " eliminado de grupo " + groupName + "."));
+                    api.removeGroupPermission(groupName, permission, world, ctx.senderName(), reason);
+                    String msg = "Permiso " + permission + " eliminado de grupo " + groupName + ".";
+                    if (world != null) msg += " (mundo: " + world + ")";
+                    ctx.reply(MessageHelper.success(msg));
                 } catch (Exception e) {
                     ctx.reply(MessageHelper.error(e.getMessage()));
                 }
@@ -329,5 +338,9 @@ public class GroupCommandHandler implements CommandHandler {
         if ("true".equalsIgnoreCase(value) || "yes".equalsIgnoreCase(value)) return true;
         if ("false".equalsIgnoreCase(value) || "no".equalsIgnoreCase(value)) return false;
         return null;
+    }
+
+    private boolean isBoolean(String value) {
+        return parseBoolean(value) != null;
     }
 }

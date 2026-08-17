@@ -197,9 +197,17 @@ class TabCompletionLogicTest {
         }
 
         @Test
-        void userPermissionSetPermValue_completesRazon() {
+        void userPermissionSetPermValue_completesMundoAndRazon() {
             var c = complete("user", "Colsson", "permission", "set", "test.permission", "true", "");
+            assertContains(c, "<mundo>");
             assertContains(c, "<razón>");
+        }
+
+        @Test
+        void userPermissionSetPermValueMundo_completesRazon() {
+            var c = complete("user", "Colsson", "permission", "set", "test.permission", "true", "lobby", "");
+            assertContains(c, "<razón>");
+            assertNotContains(c, "<mundo>");
         }
 
         @Test
@@ -209,8 +217,9 @@ class TabCompletionLogicTest {
         }
 
         @Test
-        void userPermissionRemovePerm_completesRazon() {
+        void userPermissionRemovePerm_completesMundoAndRazon() {
             var c = complete("user", "Colsson", "permission", "remove", "test.permission", "");
+            assertContains(c, "<mundo>");
             assertContains(c, "<razón>");
         }
 
@@ -414,9 +423,17 @@ class TabCompletionLogicTest {
         }
 
         @Test
-        void groupAdminPermissionSetPermValue_completesRazon() {
+        void groupAdminPermissionSetPermValue_completesMundoAndRazon() {
             var c = complete("group", "admin", "permission", "set", "test.permission", "true", "");
+            assertContains(c, "<mundo>");
             assertContains(c, "<razón>");
+        }
+
+        @Test
+        void groupAdminPermissionSetPermValueMundo_completesRazon() {
+            var c = complete("group", "admin", "permission", "set", "test.permission", "true", "lobby", "");
+            assertContains(c, "<razón>");
+            assertNotContains(c, "<mundo>");
         }
 
         @Test
@@ -426,8 +443,9 @@ class TabCompletionLogicTest {
         }
 
         @Test
-        void groupAdminPermissionRemovePerm_completesRazon() {
+        void groupAdminPermissionRemovePerm_completesMundoAndRazon() {
             var c = complete("group", "admin", "permission", "remove", "test.permission", "");
+            assertContains(c, "<mundo>");
             assertContains(c, "<razón>");
         }
 
@@ -493,6 +511,18 @@ class TabCompletionLogicTest {
         }
 
         @Test
+        void checkPlayerPerm_completesMundo() {
+            var c = complete("check", "Colsson", "test.permission", "");
+            assertContains(c, "<mundo>");
+        }
+
+        @Test
+        void checkPlayerPermMundo_noMoreCompletions() {
+            var c = complete("check", "Colsson", "test.permission", "lobby", "");
+            assertTrue(c.isEmpty());
+        }
+
+        @Test
         void groups_completesTree() {
             var c = complete("groups", "");
             assertContains(c, "tree");
@@ -527,6 +557,18 @@ class TabCompletionLogicTest {
         void debugPermissionPlayer_completesPermiso() {
             var c = complete("debug", "permission", "Colsson", "");
             assertContains(c, "<permiso>");
+        }
+
+        @Test
+        void debugPermissionPlayerPerm_completesMundo() {
+            var c = complete("debug", "permission", "Colsson", "test.permission", "");
+            assertContains(c, "<mundo>");
+        }
+
+        @Test
+        void debugPermissionPlayerPermMundo_noMoreCompletions() {
+            var c = complete("debug", "permission", "Colsson", "test.permission", "lobby", "");
+            assertTrue(c.isEmpty());
         }
     }
 

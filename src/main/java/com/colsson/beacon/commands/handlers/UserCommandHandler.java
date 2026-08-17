@@ -154,7 +154,7 @@ public class UserCommandHandler implements CommandHandler {
                                   String name, String[] args) {
         if (args.length < 1) {
             ctx.reply(MessageHelper.error(
-                "Uso: /beacon user <jugador> permission set|remove|clear [permiso] [true|false] [razón]"));
+                "Uso: /beacon user <jugador> permission set|remove|clear [permiso] [true|false] [mundo] [razón]"));
             return;
         }
 
@@ -163,12 +163,18 @@ public class UserCommandHandler implements CommandHandler {
             case "set" -> {
                 if (args.length < 3) {
                     ctx.reply(MessageHelper.error(
-                        "Uso: /beacon user <jugador> permission set <permiso> <true|false> [razón]"));
+                        "Uso: /beacon user <jugador> permission set <permiso> <true|false> [mundo] [razón]"));
                     return;
                 }
                 String permission = args[1];
                 String valueStr = args[2];
-                String reason = args.length > 3 ? args[3] : null;
+                String world = args.length > 3 && !isBoolean(args[3]) ? args[3] : null;
+                String reason = null;
+                if (world != null && args.length > 4) {
+                    reason = args[4];
+                } else if (world == null && args.length > 3) {
+                    reason = args[3];
+                }
 
                 Boolean value = parseBoolean(valueStr);
                 if (value == null) {
@@ -177,9 +183,10 @@ public class UserCommandHandler implements CommandHandler {
                 }
 
                 try {
-                    api.setUserPermission(uuid, permission, value, ctx.senderName(), reason);
-                    ctx.reply(MessageHelper.success(
-                        "Permiso " + permission + " = " + value + " para " + name + "."));
+                    api.setUserPermission(uuid, permission, value, world, ctx.senderName(), reason);
+                    String msg = "Permiso " + permission + " = " + value + " para " + name + ".";
+                    if (world != null) msg += " (mundo: " + world + ")";
+                    ctx.reply(MessageHelper.success(msg));
                 } catch (Exception e) {
                     ctx.reply(MessageHelper.error(e.getMessage()));
                 }
@@ -187,16 +194,18 @@ public class UserCommandHandler implements CommandHandler {
             case "remove" -> {
                 if (args.length < 2) {
                     ctx.reply(MessageHelper.error(
-                        "Uso: /beacon user <jugador> permission remove <permiso> [razón]"));
+                        "Uso: /beacon user <jugador> permission remove <permiso> [mundo] [razón]"));
                     return;
                 }
                 String permission = args[1];
-                String reason = args.length > 2 ? args[2] : null;
+                String world = args.length > 2 ? args[2] : null;
+                String reason = args.length > 3 ? args[3] : null;
 
                 try {
-                    api.removeUserPermission(uuid, permission, ctx.senderName(), reason);
-                    ctx.reply(MessageHelper.success(
-                        "Permiso " + permission + " eliminado de " + name + "."));
+                    api.removeUserPermission(uuid, permission, world, ctx.senderName(), reason);
+                    String msg = "Permiso " + permission + " eliminado de " + name + ".";
+                    if (world != null) msg += " (mundo: " + world + ")";
+                    ctx.reply(MessageHelper.success(msg));
                 } catch (Exception e) {
                     ctx.reply(MessageHelper.error(e.getMessage()));
                 }
@@ -234,5 +243,9 @@ public class UserCommandHandler implements CommandHandler {
         if ("true".equalsIgnoreCase(value) || "yes".equalsIgnoreCase(value)) return true;
         if ("false".equalsIgnoreCase(value) || "no".equalsIgnoreCase(value)) return false;
         return null;
+    }
+
+    private boolean isBoolean(String value) {
+        return parseBoolean(value) != null;
     }
 }
